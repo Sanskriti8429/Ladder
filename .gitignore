@@ -1,0 +1,20 @@
+# virtual environment
+.venv/
+
+# Python junk
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# recorded and downloaded market data (large, never commit)
+data/
+*.parquet
+*.zip
+*.csv
+
+# notebook checkpoints
+.ipynb_checkpoints/
+
+# editor and OS files
+.vscode/
+.DS_Store
