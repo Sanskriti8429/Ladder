@@ -30,14 +30,11 @@
 - [ ] Gradient boosting, then a small neural net
 - [ ] Replay dashboard
 
-## Setup
-
-Developed on Windows with WSL2 (Ubuntu).
-
 ```bash
 git clone git@github.com:Sanskriti8429/Ladder.git
 cd Ladder
-python3 -m venv .venv && source .venv/bin/activate
+python -m venv .venv 
+.venv\Scripts\activate
 pip install -r requirements.txt
 pytest
 ```
