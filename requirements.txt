@@ -1,0 +1,6 @@
+numpy
+polars
+pytest
+matplotlib
+scikit-learn
+websockets
