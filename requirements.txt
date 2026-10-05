@@ -4,3 +4,4 @@ pytest
 matplotlib
 scikit-learn
 websockets
+statsmodels

@@ -182,6 +182,9 @@ I had no specific expectation going in.
 - Check: mean x count is about 1,776, matching the day's move in `close` from 84,753.57 to 86,530.00.
 - OLS of next_change on signed_vol (hand-written from the derivation): slope 0.1728, intercept 0.0207. Matches scikit-learn to 15 significant digits. r^2 is about 0.3%, so the line explains very little of the variance.
 - Naive standard error of the slope: 0.0111, t = 15.5. This equals the t-stat implied by the correlation (r * sqrt(n-2) / sqrt(1-r^2)), which is how I caught an operator-precedence bug (`/n-2` instead of `/(n-2)`) that had given 19.5.
+- Lag-1 autocorrelation: signed volume +0.037, residuals +0.073. By a rough variance-inflation rule these alone raise the standard error by under 1%, so autocorrelation at lag 1 is not the main problem. Heteroskedasticity is the next suspect.
+- Heteroskedasticity-robust (White) standard error of the slope: 0.0481, t = 3.59, against the naive 0.0111 and t = 15.5. The naive standard error was understated by about 4.3x. Hypothesis (untested): residual variance is larger in high-flow seconds.
+- Hand-written robust (White/HC0) standard error 0.048113 matches statsmodels `cov_type="HC0"` to about 15 digits.
 
 Correlation of signed volume with `next_change`:
 

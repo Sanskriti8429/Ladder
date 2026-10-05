@@ -1,6 +1,7 @@
 import polars as pl
 import numpy as np
 from sklearn.linear_model import LinearRegression
+import statsmodels.api as sm
 
 COLS= ["trade_id", "price", "qty", "quote_qty","time", "is_buyer_maker", "is_best_match"]
 df= pl.read_csv(
@@ -91,3 +92,16 @@ t= b/ se_b
 
 print("naive se(b):", se_b)
 print("naive t-stat:", t)
+
+print("lag-1 autocorr of x:", np.corrcoef(x[:-1], x[1:])[0,1])
+print("lag-1 autocorr of residuals:", np.corrcoef(resid[:-1], resid[1:])[0,1])
+
+dx= x-x_bar
+se_robust= np.sqrt(((dx**2)*(resid**2)).sum()) / (dx**2).sum()
+print("robust se(b):", se_robust)
+print("robust t-stat:", b/se_robust)
+
+x= sm.add_constant(x)
+fit= sm.OLS(y,x).fit(cov_type="HC0")
+print("statsmodels slope:", fit.params[1])
+print("statsmodels robust se:", fit.bse[1])
