@@ -20,3 +20,11 @@ def test_cancel_filled_order_fails_safely():
     book.add_limit(order_id=1, side="sell", price=100, qty=5)
     book.market_order(side="buy", qty=5)
     assert book.cancel(1) == False
+
+def test_cancel_resting_order_removes_it():
+    book= OrderBook()
+    book.add_limit(order_id=1, side="sell", price=100, qty=5)
+    book.add_limit(order_id=2, side="sell", price= 100, qty=5)
+    assert book.cancel(1)== True
+    fills= book.market_order(side="buy", qty=3)
+    assert fills == [(2,100,3)]
