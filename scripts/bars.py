@@ -82,3 +82,12 @@ print("check:", 0.052669*y.std()/x.std())
 model= LinearRegression().fit(x.reshape(-1,1),y)
 print("sklearn slope:", model.coef_[0])
 print("sklearn intercept:", model.intercept_)
+
+n= len(x)
+resid= y-(a+b*x)
+s2= (resid**2).sum()/(n-2)
+se_b= np.sqrt(s2/ ((x-x_bar)**2).sum())
+t= b/ se_b
+
+print("naive se(b):", se_b)
+print("naive t-stat:", t)

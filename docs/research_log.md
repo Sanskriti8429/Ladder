@@ -180,6 +180,8 @@ I had no specific expectation going in.
 - Check: the per-second trade counts sum to exactly 1,340,109.
 - `next_change` (USDT): mean 0.021, std 2.34, min -68.93, max +116.36. 51.2% of seconds have exactly zero change, and the median and both quartiles are 0.
 - Check: mean x count is about 1,776, matching the day's move in `close` from 84,753.57 to 86,530.00.
+- OLS of next_change on signed_vol (hand-written from the derivation): slope 0.1728, intercept 0.0207. Matches scikit-learn to 15 significant digits. r^2 is about 0.3%, so the line explains very little of the variance.
+- Naive standard error of the slope: 0.0111, t = 15.5. This equals the t-stat implied by the correlation (r * sqrt(n-2) / sqrt(1-r^2)), which is how I caught an operator-precedence bug (`/n-2` instead of `/(n-2)`) that had given 19.5.
 
 Correlation of signed volume with `next_change`:
 
