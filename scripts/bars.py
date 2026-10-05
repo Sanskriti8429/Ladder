@@ -1,4 +1,6 @@
 import polars as pl
+import numpy as np
+from sklearn.linear_model import LinearRegression
 
 COLS= ["trade_id", "price", "qty", "quote_qty","time", "is_buyer_maker", "is_best_match"]
 df= pl.read_csv(
@@ -62,3 +64,21 @@ thr = full["signed_vol"].abs().quantile(0.9)
 strong = full.filter(pl.col("signed_vol").abs() >= thr)
 print(strong.height)
 print(strong.select(pl.corr("signed_vol", "next_change", method="spearman")))
+
+x= full["signed_vol"].to_numpy()
+y= full["next_change"].to_numpy()
+
+x_bar= x.mean()
+y_bar= y.mean()
+
+b= ((x-x_bar)*(y-y_bar)).sum()/ ((x-x_bar)**2).sum()
+a= y_bar- b*x_bar
+
+print("slope b:", b)
+print("intercept a:", a)
+
+print("check:", 0.052669*y.std()/x.std())
+
+model= LinearRegression().fit(x.reshape(-1,1),y)
+print("sklearn slope:", model.coef_[0])
+print("sklearn intercept:", model.intercept_)
