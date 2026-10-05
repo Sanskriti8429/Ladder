@@ -111,7 +111,7 @@ A 1-second return computed across a 27 s gap would look like a 1-second move. Or
 Flush to disk every few minutes into timestamped files, and make sure buffered rows are saved if the program is stopped with Ctrl+C.
 
 
-## Entry 3: One-hour recorder run (2026-10-05)
+## Entry 3: One-hour recorder run (05-10-2026)
 
 ### Goal
 Check the recorder over an hour unattended: no lost rows, clean shutdown, and better estimates of message rate, gaps and price-move share than the 60 s samples gave.
@@ -153,3 +153,140 @@ One hour, one time of day. Top of book only, so no depth features. Arrival time 
 
 ### Next
 Crude end-to-end loop on downloaded trade data (signed volume, hand-written OLS). Restart the recorder so data keeps accumulating.
+
+
+## Entry 4: One day of Binance trades, signed volume vs next-second price change (2026-10-05)
+
+### Goal
+Test the simplest version of the order-flow idea on downloaded trade data: does net aggressive buying in one second predict the price change in the next second?
+
+### Data
+`BTCUSDT-trades-2026-10-04.zip` from data.binance.vision, 1,340,109 trades for the UTC day 2026-10-04. The file has no header row. Columns: trade id, price, quantity, quote quantity, time, is_buyer_maker, is_best_match. Time is in microseconds (16 digits), whereas my recorder's `arrival_ns` is in nanoseconds.
+
+### Method
+- Sort by (time, trade_id), since several trades share a timestamp.
+- Sign each trade: +qty if `is_buyer_maker` is False (aggressive buyer), -qty if True (aggressive seller).
+- Bucket into one-second bars: signed volume, last trade price (`close`), trade count.
+- Join onto a full grid of all 86,400 seconds. Empty seconds get signed volume 0, and the last price is carried forward.
+- Target: `next_change` = close(t+1) - close(t). The final row has no next second and is dropped.
+
+### Expectation
+I had no specific expectation going in.
+
+### Results
+- 15.5 trades per second on average. My recorder saw about 113 book updates per second on a different day, so book updates outnumber trades by roughly 7 to 1.
+- 50.07% of trades have `is_buyer_maker = True` (aggressive seller). Net signed volume over the day was -45.49 BTC, so aggressive sellers outweighed buyers.
+- 77,683 of 86,400 seconds had at least one trade, so 10.1% of seconds were empty.
+- Check: the per-second trade counts sum to exactly 1,340,109.
+- `next_change` (USDT): mean 0.021, std 2.34, min -68.93, max +116.36. 51.2% of seconds have exactly zero change, and the median and both quartiles are 0.
+- Check: mean x count is about 1,776, matching the day's move in `close` from 84,753.57 to 86,530.00.
+
+Correlation of signed volume with `next_change`:
+
+shape: (5, 4)
+┌────────────┬────────────┬──────────┬──────────┐
+│ sec        ┆ signed_vol ┆ close    ┆ n_trades │
+│ ---        ┆ ---        ┆ ---      ┆ ---      │
+│ i64        ┆ f64        ┆ f64      ┆ u32      │
+╞════════════╪════════════╪══════════╪══════════╡
+│ 1791072000 ┆ 0.00586    ┆ 84753.57 ┆ 7        │
+│ 1791072001 ┆ -0.00322   ┆ 84753.56 ┆ 6        │
+│ 1791072002 ┆ 0.00068    ┆ 84753.56 ┆ 2        │
+│ 1791072003 ┆ 0.00364    ┆ 84753.57 ┆ 5        │
+│ 1791072004 ┆ 0.00591    ┆ 84753.57 ┆ 2        │
+└────────────┴────────────┴──────────┴──────────┘
+77683 seconds with at least one trade out of 86400
+1340109
+-45.48524999999998
+86400
+shape: (2, 5)
+┌────────────┬────────────┬─────────┬──────────┬─────────────┐
+│ sec        ┆ signed_vol ┆ close   ┆ n_trades ┆ next_change │
+│ ---        ┆ ---        ┆ ---     ┆ ---      ┆ ---         │
+│ i64        ┆ f64        ┆ f64     ┆ u32      ┆ f64         │
+╞════════════╪════════════╪═════════╪══════════╪═════════════╡
+│ 1791158398 ┆ -1.96097   ┆ 86530.0 ┆ 151      ┆ 0.0         │
+│ 1791158399 ┆ 0.0        ┆ 86530.0 ┆ 0        ┆ null        │
+└────────────┴────────────┴─────────┴──────────┴─────────────┘
+shape: (9, 2)
+┌────────────┬──────────┐
+│ statistic  ┆ value    │
+│ ---        ┆ ---      │
+│ str        ┆ f64      │
+╞════════════╪══════════╡
+│ count      ┆ 86399.0  │
+│ null_count ┆ 0.0      │
+│ mean       ┆ 0.020561 │
+│ std        ┆ 2.336959 │
+│ min        ┆ -68.93   │
+│ 25%        ┆ 0.0      │
+│ 50%        ┆ 0.0      │
+│ 75%        ┆ 0.0      │
+│ max        ┆ 116.36   │
+└────────────┴──────────┘
+share of seconds with zero change: 0.511811479299529
+shape: (1, 1)
+┌────────────┐
+│ signed_vol │
+│ ---        │
+│ f64        │
+╞════════════╡
+│ 0.052669   │
+└────────────┘
+shape: (1, 1)
+┌────────────┐
+│ signed_vol │
+│ ---        │
+│ f64        │
+╞════════════╡
+│ -0.185415  │
+└────────────┘
+4751
+shape: (1, 1)
+┌────────────┐
+│ signed_vol │
+│ ---        │
+│ f64        │
+╞════════════╡
+│ 0.336471   │
+└────────────┘
+8641
+shape: (1, 1)
+┌────────────┐
+│ signed_vol │
+│ ---        │
+│ f64        │
+╞════════════╡
+│ 0.145399   │
+└────────────┘
+
+### Interpretation
+- The sign of the rank correlation depends on which seconds are included. Over all seconds it is negative, while in high-flow seconds it is positive.
+- Hypothesis (not tested directly): `close` is the last trade price, so it bounces between bid and ask. If the last trade in a second was a buy, it executed at the ask, and the next change tends to be down by a tick. Net buying makes a last-trade buy more likely, so this produces a negative rank correlation without any real reversal. A one-tick bounce cannot survive the $1 filter, and the sign flip there is consistent with the explanation.
+- The +0.336 conditions on the outcome (big moves), so it overstates what could be predicted in advance. The +0.145 filters on the predictor, which uses only information available before the next second, so it is the fairer number.
+- Pearson (+0.053) and Spearman (-0.185) disagree because Pearson is dominated by a few huge moves and Spearman gives a one-tick move the same weight as a $100 move.
+
+### Mistakes caught
+- Divided time by 1e3 instead of 1e6, which gives millisecond buckets, not seconds.
+- Gave `is_buyer_maker = True` a positive sign, but the buyer being the resting order means the seller was aggressive.
+- Signed trade counts (+1/-1) instead of quantities.
+- Used a full join instead of a left join when building the grid of seconds.
+- Left out the `time` column when naming the columns, which would have shifted every name after it.
+
+### Surprises
+The relationship between flow and the next price change was different depending on which seconds I looked at. It was negative over the whole day, positive for the largest-flow seconds, and strongest when I conditioned on big moves.
+
+### Limitations
+- One day of data, so nothing here says whether the pattern repeats.
+- No standard errors. The overlapping, heavy-tailed, tie-heavy data makes a naive 1/sqrt(n) badly overconfident.
+- `close` is the last trade price and contains bid-ask bounce. A mid price from the recorded book would remove it.
+- A correlation is not a trading result. There are no costs, latency or fills in any of this.
+
+### Open questions
+1. Is -45.49 BTC large relative to total volume traded that day?
+2. Do trades with the same timestamp come from one aggressive order that matched several resting orders?
+3. Does the result change if I use the mid price from my recorded book data?
+4. How large is the uncertainty on +0.145 once autocorrelation is handled (HAC standard errors)?
+
+### Next
+Derive the OLS estimator by hand, fit the regression of `next_change` on `signed_vol`, and check it against scikit-learn. Then repeat the analysis using mid price from the recorded data.
