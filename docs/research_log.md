@@ -109,3 +109,47 @@ A 1-second return computed across a 27 s gap would look like a 1-second move. Or
 
 ### Next
 Flush to disk every few minutes into timestamped files, and make sure buffered rows are saved if the program is stopped with Ctrl+C.
+
+
+## Entry 3: One-hour recorder run (2026-10-05)
+
+### Goal
+Check the recorder over an hour unattended: no lost rows, clean shutdown, and better estimates of message rate, gaps and price-move share than the 60 s samples gave.
+
+### Setup
+`src/ladder/record.py` with a 5 min timer flush, a flush on disconnect, atomic writes (temp file then rename), a 5 s silence watchdog, `open_timeout=3`, `close_timeout=1`, and a `session_id`. One run of 61 minutes, stopped with a single Ctrl+C.
+
+### Expectation
+I expected the price to move in a larger share of messages than it does, and I expected a wider spread than one tick (from Entry 1). I expected the recorder to survive an hour unattended, but I had not tested it for that long before.
+
+### Results
+- 13 Parquet files, 416,113 rows in total. The sum of the printed flush counts equals the rows read back, so nothing was lost.
+- One segment, no reconnects, no watchdog timeouts.
+- Average rate 113 messages per second. The 5-minute windows ranged from about 80 to 196 per second.
+- Price changed in 6,629 of 416,112 messages (1.59%), about 1.8 changes per second.
+- Gap between messages: median 13 microseconds, 99th percentile 164 ms, maximum 1.22 s.
+- Update id jump: median 2, maximum 260. Rank correlation with the time gap 0.27 (0.42 on the earlier 2,000-row sample).
+- Shutdown: one Ctrl+C triggered the final flush (5,873 rows). The traceback is asyncio re-raising `KeyboardInterrupt` after cleanup and does not affect the data.
+- Disk: 3.8 MB for the hour (about 9 bytes per row after Parquet compression), so roughly 90 MB per day.
+
+### Interpretation
+- The message rate is not stable, so nothing downstream can assume a fixed number of messages per second or per bucket.
+- The 1.06% price-move share from the 60 s sample had only 22 events and was noise. 1.6% is the better estimate for this hour.
+- The 5 s watchdog is about 4x the longest silence seen in the hour. It is safe for this hour, but the sample is one hour at one time of day.
+- Hypothesis (weakened): the update id counts book events that this stream does not publish. The correlation fell from 0.42 to 0.27, so the idea is not confirmed. To check against the Binance documentation.
+
+### Limitations
+One hour, one time of day. Top of book only, so no depth features. Arrival time is when my program handled a message, not when the exchange sent it.
+
+### Surprises
+- Ctrl+C did not stop the recorder with one press at first. The final flush still ran, and I learned that pressing twice can interrupt it.
+- The message rate reached about 196 per second in one 5-minute window, much higher than the 34 to 75 per second in my short samples, so a short sample says little about the rate.
+- The price moved in only 1.6% of messages, so almost all of the data is size changes at the best price.
+
+### Open questions
+1. Do the message rate and the price-move share change with the time of day?
+2. What does the Binance documentation say about gaps in `u` on this stream?
+3. How much disk does a day of data use, and when do I need to merge the 5-minute files into daily files?
+
+### Next
+Crude end-to-end loop on downloaded trade data (signed volume, hand-written OLS). Restart the recorder so data keeps accumulating.

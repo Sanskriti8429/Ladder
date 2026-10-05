@@ -1,6 +1,6 @@
 import polars as pl
 
-df = pl.read_parquet("data/btcusdt_book.parquet")
+df = pl.read_parquet("data/btcusdt_2*.parquet")
 
 segs = (
     df.group_by("segment_id")

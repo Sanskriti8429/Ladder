@@ -1,6 +1,6 @@
 import polars as pl
 
-df = pl.read_parquet("data/btcusdt_book.parquet")
+df = pl.read_parquet("data/btcusdt_2*.parquet")
 print(df.shape)
 print(df.head())
 print("sorted:", df["arrival_ns"].is_sorted())
