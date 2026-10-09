@@ -35,3 +35,12 @@ def test_sell_market_order_hits_highest_bid_first():
     book.add_limit(order_id=2, side="buy", price=101, qty=5)
     fills= book.market_order(side="sell", qty=7)
     assert fills== [(2,101,5), (1,100,2)]
+    
+def test_market_order_larger_than_book_takes_everything():
+    book= OrderBook()
+    book.add_limit(order_id=1, side= "sell", price=100, qty=3)
+    book.add_limit(order_id=2, side="sell", price= 101, qty=2)
+    fills= book.market_order(side="buy", qty=10)
+    assert fills== [(1,100,3), (2,101,2)]
+    assert book.books["sell"]== {}
+    assert book.index== {}
