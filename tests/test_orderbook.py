@@ -44,3 +44,10 @@ def test_market_order_larger_than_book_takes_everything():
     assert fills== [(1,100,3), (2,101,2)]
     assert book.books["sell"]== {}
     assert book.index== {}
+    
+def test_crossing_limit_order_trades_at_resting_price():
+    book= OrderBook()
+    book.add_limit(order_id=1, side="sell", price=100, qty=5)
+    fills= book.add_limit(order_id=2, side="buy", price= 101, qty=3)
+    assert fills== [(1,100,3)]
+    assert book.books["buy"]== {}
