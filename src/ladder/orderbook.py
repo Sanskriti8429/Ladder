@@ -59,3 +59,22 @@ class OrderBook:
         if not queue:
             del self.books[side][price]
         return True
+    
+    def best_bid(self):
+        levels = self.books["buy"]
+        if not levels:
+            return None
+        return max(levels)
+
+    def best_ask(self):
+        levels = self.books["sell"]
+        if not levels:
+            return None
+        return min(levels)
+
+    def spread(self):
+        ask = self.best_ask()
+        bid = self.best_bid()
+        if bid is None or ask is None:
+            return None
+        return ask - bid

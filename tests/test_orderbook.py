@@ -59,3 +59,14 @@ def test_partially_filled_limit_order_rests_remainder():
     assert fills== [(1,100,3)]
     assert list(book.books["buy"][101])==[[2,2]]
     assert book.books["sell"]== {}
+    
+def test_best_bid_ask_and_spread():
+    book = OrderBook()
+    assert book.best_bid() is None
+    book.add_limit(order_id=1, side="buy", price=99, qty=5)
+    book.add_limit(order_id=2, side="buy", price=98, qty=5)
+    book.add_limit(order_id=3, side="sell", price=102, qty=5)
+    book.add_limit(order_id=4, side="sell", price=103, qty=5)
+    assert book.best_bid() == 99
+    assert book.best_ask() == 102
+    assert book.spread() == 3
