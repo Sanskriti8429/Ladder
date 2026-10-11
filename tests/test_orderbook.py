@@ -16,6 +16,20 @@ def test_book_is_never_crossed(order_list):
         ask = book.best_ask()
         if bid is not None and ask is not None:
             assert bid < ask
+            
+@given(orders)
+def test_quantity_is_conserved(order_list):
+    book= OrderBook()
+    submitted= 0
+    filled= 0
+    for i, (side, price, qty) in enumerate(order_list):
+        submitted += qty
+        fills= book.add_limit(order_id=i, side= side, price= price, qty= qty)
+        filled += sum(f[2] for f in fills)
+    resting= sum(
+        q for levels in book.books.values() for queue in levels.values() for _, q in queue
+    )
+    assert submitted== resting + 2*filled
 
 def test_same_price_fills_in_time_order():
     book= OrderBook()
