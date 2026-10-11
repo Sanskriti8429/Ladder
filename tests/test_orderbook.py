@@ -51,3 +51,11 @@ def test_crossing_limit_order_trades_at_resting_price():
     fills= book.add_limit(order_id=2, side="buy", price= 101, qty=3)
     assert fills== [(1,100,3)]
     assert book.books["buy"]== {}
+    
+def test_partially_filled_limit_order_rests_remainder():
+    book= OrderBook()
+    book.add_limit(order_id=1, side="sell", price=100, qty=3)
+    fills= book.add_limit(order_id=2, side="buy", price=101, qty=5)
+    assert fills== [(1,100,3)]
+    assert list(book.books["buy"][101])==[[2,2]]
+    assert book.books["sell"]== {}
