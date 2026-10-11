@@ -1,9 +1,11 @@
 import polars as pl
 
+pl.Config.set_tbl_rows(50)
+
 df = pl.read_parquet("data/btcusdt_2*.parquet")
 
 segs = (
-    df.group_by("segment_id")
+    df.group_by(["session_id", "segment_id"])
     .agg(
         pl.len().alias("rows"),
         pl.col("arrival_ns").min().alias("start_ns"),
@@ -16,3 +18,4 @@ segs = (
     )
 )
 print(segs)
+print("total recorded hours:", segs["duration_s"].sum() / 3600)
