@@ -295,3 +295,31 @@ The relationship between flow and the next price change was different depending 
 
 ### Next
 Derive the OLS estimator by hand, fit the regression of `next_change` on `signed_vol`, and check it against scikit-learn. Then repeat the analysis using mid price from the recorded data.
+
+## Entry 5: Order book and matching engine (add date)
+
+### Goal
+Build a limit order book with price-time priority, tested enough to trust as the base for the backtester.
+
+### What exists
+`src/ladder/orderbook.py`: two sides (bids and asks), each a dictionary of price level to a FIFO queue of resting orders. Features: limit orders that match on arrival (via a shared `_match` routine), market orders, cancel by order id, best bid, best ask and spread. Trades execute at the resting order's price. Any unfilled part of a limit order rests at its own limit price. The unfilled part of a market order is discarded.
+
+### Tests
+12 tests, all passing. Ten are hand-written examples (time priority, multi-level sweeps, cancel of filled and resting orders, both sides, a market order bigger than the book, crossing and partly filled limit orders, best bid/ask/spread, a limit order at exactly the resting price). Two are property tests with hypothesis: the book is never crossed, and quantity is conserved (submitted = resting + 2 x filled).
+
+### Test of the tests
+I planted a bug on purpose (`>` changed to `>=` in the limit-price check). Only the never-crossed property failed, and hypothesis shrank the failure to two orders: sell 1 at 90, then buy 1 at 90. None of my hand-written tests covered equal prices, and the conservation property stayed green because the bug moves quantity into the book rather than losing it. The shrunk case is now a permanent unit test.
+
+### Mistakes caught along the way
+- `side` was ignored in the first version, so bids were stored as asks. The bid-side test returned the wrong fills without any error.
+- Operator precedence and function-vs-call slips (`return max` instead of `max(levels)`, `self.best_ask` without brackets).
+- `assert ask - bid` passes for any nonzero value, so it would have hidden a crossed book. The check has to be `bid < ask`.
+
+### Known limitations
+- Prices are plain integers in the tests, but nothing enforces integer ticks.
+- No validation: duplicate order ids, zero or negative quantities are not rejected, and the property tests never generate them.
+- `best_bid` and `best_ask` scan all price levels, which is fine here but will show up in the C++ benchmarks.
+- No order modify, no self-trade handling, no order types beyond limit and market.
+
+### Next
+Book reconstruction from snapshots and deltas, which needs a depth feed, not the best bid/ask stream I recorded so far.

@@ -18,7 +18,7 @@
 - [x] Repo, tooling and research log
 - [x] Crude end-to-end loop: trades, signed volume, hand-written OLS
 - [x] Live book recorder (Binance websocket to Parquet)
-- [ ] Order book and matching engine with tests
+- [x] Order book and matching engine with tests
 - [ ] Book reconstruction (gaps, ordering, timestamps)
 - [ ] Features: OFI, multi-depth imbalance, microprice
 - [ ] Baselines: ridge and logistic regression, HAC standard errors
