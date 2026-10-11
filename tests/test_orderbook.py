@@ -1,4 +1,21 @@
 from ladder.orderbook import OrderBook
+from hypothesis import given, strategies as st
+
+orders = st.lists(
+    st.tuples(st.sampled_from(["buy", "sell"]), st.integers(90, 100), st.integers(1, 10)),
+    max_size=50,
+)
+
+
+@given(orders)
+def test_book_is_never_crossed(order_list):
+    book = OrderBook()
+    for i, (side, price, qty) in enumerate(order_list):
+        book.add_limit(order_id=i, side=side, price=price, qty=qty)
+        bid = book.best_bid()
+        ask = book.best_ask()
+        if bid is not None and ask is not None:
+            assert bid < ask
 
 def test_same_price_fills_in_time_order():
     book= OrderBook()
