@@ -101,3 +101,11 @@ def test_best_bid_ask_and_spread():
     assert book.best_bid() == 99
     assert book.best_ask() == 102
     assert book.spread() == 3
+    
+def test_limit_order_at_exact_resting_price_trades():
+    book = OrderBook()
+    book.add_limit(order_id=0, side="sell", price=90, qty=1)
+    fills = book.add_limit(order_id=1, side="buy", price=90, qty=1)
+    assert fills == [(0, 90, 1)]
+    assert book.books["buy"] == {}
+    assert book.books["sell"] == {}
