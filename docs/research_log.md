@@ -78,7 +78,7 @@ Console output:
 - `segment 1 ended: TimeoutError`, 11 s later
 
 Segment table from `scripts/segments.py`:
-
+```
 ┌────────────┬──────┬─────────────────────┬─────────────────────┬───────────┬────────────┐
 │ segment_id ┆ rows ┆ start_ns            ┆ end_ns              ┆ gap_s     ┆ duration_s │
 │ ---        ┆ ---  ┆ ---                 ┆ ---                 ┆ ---       ┆ ---        │
@@ -87,7 +87,7 @@ Segment table from `scripts/segments.py`:
 │ 0          ┆ 655  ┆ 1791145243982023472 ┆ 1791145261451815240 ┆ null      ┆ 17.469792  │
 │ 2          ┆ 1379 ┆ 1791145289191885985 ┆ 1791145333118011344 ┆ 27.740071 ┆ 43.926125  │
 └────────────┴──────┴─────────────────────┴─────────────────────┴───────────┴────────────┘
-
+```
 - Segment 1 has no rows. It was a failed connection attempt that never received data. Hypothesis: the connect call hung until its own timeout (about 10 s), which would explain the 11 s between the two log lines.
 - The gap between segments 0 and 2 is 27.7 s. 17.5 + 27.7 + 43.9 = 89.1 s, matching the 90 s duration. So `DURATION` counts wall-clock time including outages, and about 61 s of it was actual data.
 - The gap is marked in the data by the change of `segment_id`, so a later calculation can refuse to cross it.
@@ -155,7 +155,7 @@ One hour, one time of day. Top of book only, so no depth features. Arrival time 
 Crude end-to-end loop on downloaded trade data (signed volume, hand-written OLS). Restart the recorder so data keeps accumulating.
 
 
-## Entry 4: One day of Binance trades, signed volume vs next-second price change (2026-10-05)
+## Entry 4: One day of Binance trades, signed volume vs next-second price change (05-10-2026)
 
 ### Goal
 Test the simplest version of the order-flow idea on downloaded trade data: does net aggressive buying in one second predict the price change in the next second?
@@ -188,82 +188,11 @@ I had no specific expectation going in.
 
 Correlation of signed volume with `next_change`:
 
-shape: (5, 4)
-┌────────────┬────────────┬──────────┬──────────┐
-│ sec        ┆ signed_vol ┆ close    ┆ n_trades │
-│ ---        ┆ ---        ┆ ---      ┆ ---      │
-│ i64        ┆ f64        ┆ f64      ┆ u32      │
-╞════════════╪════════════╪══════════╪══════════╡
-│ 1791072000 ┆ 0.00586    ┆ 84753.57 ┆ 7        │
-│ 1791072001 ┆ -0.00322   ┆ 84753.56 ┆ 6        │
-│ 1791072002 ┆ 0.00068    ┆ 84753.56 ┆ 2        │
-│ 1791072003 ┆ 0.00364    ┆ 84753.57 ┆ 5        │
-│ 1791072004 ┆ 0.00591    ┆ 84753.57 ┆ 2        │
-└────────────┴────────────┴──────────┴──────────┘
-77683 seconds with at least one trade out of 86400
-1340109
--45.48524999999998
-86400
-shape: (2, 5)
-┌────────────┬────────────┬─────────┬──────────┬─────────────┐
-│ sec        ┆ signed_vol ┆ close   ┆ n_trades ┆ next_change │
-│ ---        ┆ ---        ┆ ---     ┆ ---      ┆ ---         │
-│ i64        ┆ f64        ┆ f64     ┆ u32      ┆ f64         │
-╞════════════╪════════════╪═════════╪══════════╪═════════════╡
-│ 1791158398 ┆ -1.96097   ┆ 86530.0 ┆ 151      ┆ 0.0         │
-│ 1791158399 ┆ 0.0        ┆ 86530.0 ┆ 0        ┆ null        │
-└────────────┴────────────┴─────────┴──────────┴─────────────┘
-shape: (9, 2)
-┌────────────┬──────────┐
-│ statistic  ┆ value    │
-│ ---        ┆ ---      │
-│ str        ┆ f64      │
-╞════════════╪══════════╡
-│ count      ┆ 86399.0  │
-│ null_count ┆ 0.0      │
-│ mean       ┆ 0.020561 │
-│ std        ┆ 2.336959 │
-│ min        ┆ -68.93   │
-│ 25%        ┆ 0.0      │
-│ 50%        ┆ 0.0      │
-│ 75%        ┆ 0.0      │
-│ max        ┆ 116.36   │
-└────────────┴──────────┘
-share of seconds with zero change: 0.511811479299529
-shape: (1, 1)
-┌────────────┐
-│ signed_vol │
-│ ---        │
-│ f64        │
-╞════════════╡
-│ 0.052669   │
-└────────────┘
-shape: (1, 1)
-┌────────────┐
-│ signed_vol │
-│ ---        │
-│ f64        │
-╞════════════╡
-│ -0.185415  │
-└────────────┘
-4751
-shape: (1, 1)
-┌────────────┐
-│ signed_vol │
-│ ---        │
-│ f64        │
-╞════════════╡
-│ 0.336471   │
-└────────────┘
-8641
-shape: (1, 1)
-┌────────────┐
-│ signed_vol │
-│ ---        │
-│ f64        │
-╞════════════╡
-│ 0.145399   │
-└────────────┘
+| Sample                            | Seconds | Spearman | Pearson      |
+|-----------------------------------|---------|----------|--------------|
+| All seconds                       | 86,399  | -0.185   | +0.053       |
+| Next move at least $1             | 4,751   | +0.336   | not computed |
+| Top 10% of absolute signed volume | 8,641   | +0.145   | not computed |
 
 ### Interpretation
 - The sign of the rank correlation depends on which seconds are included. Over all seconds it is negative, while in high-flow seconds it is positive.
@@ -283,7 +212,7 @@ The relationship between flow and the next price change was different depending 
 
 ### Limitations
 - One day of data, so nothing here says whether the pattern repeats.
-- No standard errors. The overlapping, heavy-tailed, tie-heavy data makes a naive 1/sqrt(n) badly overconfident.
+- Standard errors are naive (t = 15.5) and heteroskedasticity-robust (t = 3.6). HAC (Newey-West) errors are not computed yet, and the correlations in the table have no error bars.
 - `close` is the last trade price and contains bid-ask bounce. A mid price from the recorded book would remove it.
 - A correlation is not a trading result. There are no costs, latency or fills in any of this.
 
@@ -294,9 +223,9 @@ The relationship between flow and the next price change was different depending 
 4. How large is the uncertainty on +0.145 once autocorrelation is handled (HAC standard errors)?
 
 ### Next
-Derive the OLS estimator by hand, fit the regression of `next_change` on `signed_vol`, and check it against scikit-learn. Then repeat the analysis using mid price from the recorded data.
+Repeat the analysis with the mid price from the recorded book data (no bid-ask bounce), compute HAC standard errors, and test whether residual variance rises with flow.
 
-## Entry 5: Order book and matching engine (add date)
+## Entry 5: Order book and matching engine (06-10-2026)
 
 ### Goal
 Build a limit order book with price-time priority, tested enough to trust as the base for the backtester.
@@ -323,3 +252,54 @@ I planted a bug on purpose (`>` changed to `>=` in the limit-price check). Only 
 
 ### Next
 Book reconstruction from snapshots and deltas, which needs a depth feed, not the best bid/ask stream I recorded so far.
+
+## Entry 6: Recorded top-of-book data, and the depth stream (02-11-2026)
+
+### Goal
+Summarise what the recorder has collected so far, and learn the format and rules of Binance's depth feed before building a full order book from it.
+
+### Part 1: What the recorder has collected
+
+**Data.** 7,470,790 rows in 22 segments across 4 program runs (4 session ids), about 19.5 hours of recording in total. Segments last from 29 s to 2.4 h. The one-hour test run holds 416,113 rows, and the three later runs hold the rest.
+
+**Gaps.**
+- Between runs: 547 s (about 9 min), 311,167 s (3.6 days) and 103,806 s (28.8 h). These are separate program runs and not reconnects.
+- Inside runs: 18 gaps. Four are under 10 s, which fits a short network drop plus the reconnect delay. The other 14 range from about a minute to about an hour (longest 3,679 s).
+
+**Hypothesis (not verified):** the longer gaps inside runs come from the laptop sleeping and suspending the recorder, not from the network. The only evidence so far is one stretch of console output (10:06:53 to 10:20:03) where two expected 5-minute flush lines never printed, which is what a suspended program would look like. To test it, turn sleep off while plugged in and see whether the long gaps stop.
+
+**Consequence for analysis.** Every calculation must be done within (session_id, segment_id). A `.diff()` over the combined data would treat the 3.6-day gap as one message interval. `scripts/segments.py` now groups by both columns. `scripts/check.py` still needs the same change.
+
+### Part 2: The depth stream
+
+**Recipe (from the Binance documentation).** Open the diff depth stream and buffer its events, fetch a REST snapshot, drop events older than the snapshot, then apply events in order. Each event's first update id `U` must equal the previous event's last id `u` plus 1, and if the chain breaks the book must be rebuilt from a new snapshot. Each event carries absolute quantities per price level, and a quantity of 0 removes the level. An event that removes a level the local book never had is normal. I could not confirm the exact spot rule for the first event after the snapshot (the futures docs say `u >= lastUpdateId`; I believe spot uses `lastUpdateId + 1`), so this needs checking against the current spot documentation.
+
+**Event format (three real messages).** Fields: `e` (event type), `E` (exchange event time, milliseconds), `s` (symbol), `U` and `u` (first and last update id), `b` and `a` (lists of `[price, quantity]` string pairs). Prices and quantities are strings with 8 decimals. The `E` values were 100 ms apart. Each event holds only the levels that changed, including levels far from the market (one bid update was about 10% below the best bid).
+
+**Chain check, 30 s of live data.** 294 events in 30.1 s (9.8 per second, consistent with the 100 ms stream), 0 chain breaks, average 21.3 levels per event.
+
+**Snapshot (limit 1000).** `lastUpdateId` 102,226,903,765, the same scale as the event ids. 1,000 bids and 1,000 asks, best price first in both lists. Best bid 76,632.00, best ask 76,632.01. The 1,000th bid is $215.44 (0.28%) below the best bid and the 1,000th ask is $284.56 (0.37%) above the best ask, so the snapshot only covers a thin band around the price.
+
+**Three timestamp units in this project.** Trades files use microseconds, the depth event time `E` uses milliseconds, and the recorder's `arrival_ns` uses nanoseconds. Convert before comparing any two of them.
+
+
+### Interpretation
+- A depth book is level-aggregated, meaning price to total quantity, so my order-by-order matching engine cannot consume it. The two books do different jobs: the depth book reproduces what the exchange showed, and the matching engine simulates my own orders in the backtester.
+- Because the snapshot covers only about 0.3% around the price, a local book is complete near the market and sparse far from it. Features that use the top few levels are safe, but a long session needs fresh snapshots as the price drifts.
+- `E` is an exchange timestamp, so `arrival_ns` minus `E` gives a rough latency estimate. My clock and Binance's are not synchronised, so this is approximate until I measure the offset.
+- Hypothesis (not tested): `bookTicker` ids skipped numbers while depth ids chain without gaps because `bookTicker` only publishes changes that touch the top of the book.
+- This feed cannot show anything faster than 100 ms, which limits the shortest horizon in the project.
+
+### Limitations
+- The depth probes are 30 s samples, so the 0 chain breaks says little about long sessions or busy periods.
+- The recorded top-of-book data covers about 19.5 hours across 4 runs, with gaps. It has no depth.
+- The first-event rule after the snapshot is unconfirmed for spot.
+
+### Open questions
+1. What exactly is the spot rule for the first event after the snapshot?
+2. Do the long gaps inside runs come from the laptop sleeping?
+3. How large is the offset between my clock and the exchange's `E` time?
+4. How much disk does a day of raw depth events need, and should the recorder save raw JSON or parsed rows?
+
+### Next
+Write a `DepthBook` class (price to quantity per side, integer ticks) test-first, then a depth recorder that saves raw events and snapshots with session and segment ids, then replay the raw events and compare the rebuilt best bid and ask with the `bookTicker` feed recorded over the same time.
