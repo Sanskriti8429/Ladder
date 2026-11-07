@@ -33,3 +33,8 @@ class DepthBook:
         self._apply_levels(self.bids, event["b"])
         self._apply_levels(self.asks, event["a"])
         self.last_update_id = event["u"]
+        
+    def sync(self, snapshot, buffered_events):
+        self.apply_snapshot(snapshot["lastUpdateId"], snapshot["bids"], snapshot["asks"])
+        for event in buffered_events:
+            self.apply_event(event)
