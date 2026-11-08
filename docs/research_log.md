@@ -303,3 +303,56 @@ Summarise what the recorder has collected so far, and learn the format and rules
 
 ### Next
 Write a `DepthBook` class (price to quantity per side, integer ticks) test-first, then a depth recorder that saves raw events and snapshots with session and segment ids, then replay the raw events and compare the rebuilt best bid and ask with the `bookTicker` feed recorded over the same time.
+
+## Entry 7: Depth book reconstruction and replay check (08-11-2026)
+
+### Goal
+Rebuild Binance's order book from the diff depth stream plus a REST snapshot, and verify it against an independent feed.
+
+### What exists
+- `src/ladder/depthbook.py`: price (integer ticks) to quantity per side. A snapshot sets the book. An event sets absolute quantities, and a quantity of 0 removes the level. A stale event (last id at or below the book's) is ignored, an overlapping event is applied, and an event that starts after the book's id plus 1 raises `ChainBreak` before touching the book. `sync(snapshot, buffered_events)` combines a snapshot with events buffered during the REST call.
+- `src/ladder/depth_record.py`: saves raw event JSON and raw snapshots with session and segment ids, flushing every 5 minutes, with a new segment and a fresh snapshot after any disconnect or `ChainBreak`.
+- `src/ladder/live_sync.py`: 30 s live check of the sync procedure.
+- `scripts/replay_check.py`: rebuilds the book from the saved raw events and compares the top of book with `bookTicker`.
+- 17 passing tests, including a gap test, a stale-and-overlap test and two sync tests.
+
+### Spot rule (confirmed from the current docs)
+Events whose last id is at or below the snapshot's `lastUpdateId` are discarded. After that, an event is applied unless its first id is greater than the book's id plus 1, which means events were missed and the book must be rebuilt. Overlap is allowed because quantities are absolute. This corrected my first version, which used a strict equality check that would have rejected valid events.
+
+### Results
+- Live sync: 3 to 5 events buffered during the snapshot download, no chain break in 30 s, quantities and prices changing as expected.
+- Replay check over about 26 minutes recorded at the same time as `bookTicker`: 15,629 events rebuilt, 15,576 compared. Best bid and ask matched on 100% of events and sizes on 100%, with 0 mismatches.
+- A first run showed 51 size mismatches. They were all in the last 5 seconds, because I stopped the `bookTicker` recorder about 5 s before the depth recorder. The ticker values were frozen at its last row. Comparing only up to the last ticker id removed them.
+- Disk: about 75 bytes per event after Parquet compression, so roughly 65 MB per day at 10 events per second (rough, from a 2-minute test).
+
+### Mistakes caught
+- `asyncio.block` does not exist (the function is `asyncio.to_thread`).
+- A leftover `save = False` line meant events were saved but never applied, so the chain check would never have run.
+- The recorder's exception list needed `ChainBreak`.
+- My first hypothesis for the mismatches (one-update lag between feeds) was wrong. The ticker rows ended before the mismatches began.
+
+### Interpretation
+- The shared update id counter between `bookTicker` and the depth stream is confirmed, since the join only works if both use one counter. It also explains the skipped ids in `bookTicker`: it only emits a row when the top of the book changes.
+- Raw JSON storage is cheap enough to keep, so the book logic can be fixed and replayed.
+
+### Expectation
+I expected the rebuilt best bid and ask to match `bookTicker` on nearly every event, with a few disagreements from timing differences between the two feeds. I expected the live sync to need only a handful of buffered events, and I expected the spot rule for the first event after the snapshot to be the strict one I had already coded.
+
+### Surprises
+- The spot rule is looser than the one I coded: overlapping events are allowed, and a break only means the first id is greater than the book's id plus 1. My strict equality check would have rejected valid events.
+- The 51 size mismatches turned out to come from my own recording, not from the book. I stopped the `bookTicker` recorder about 5 seconds before the depth recorder, so the ticker values were frozen at its last row.
+- My timing-lag explanation for the mismatches was wrong. The ticker rows ended before the first mismatch.
+- The `bookTicker` and depth streams share one update id counter, and that is what makes the replay check possible at all.
+
+### Limitations
+- 26 minutes, one segment, no live resync exercised.
+- The replay compares the top of the book only.
+- Both feeds come from the same exchange, so this checks my code, not the exchange.
+
+### Open questions
+1. What happens to the check across a deliberate Wi-Fi drop during depth recording?
+2. How far does the 1000-level snapshot window drift out of date over several hours?
+3. How large is the offset between my clock and the exchange's `E` time?
+
+### Next
+Features computed from the book: order flow imbalance, multi-depth imbalance and microprice.
