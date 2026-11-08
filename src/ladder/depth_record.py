@@ -11,7 +11,7 @@ from ladder.depthbook import DepthBook, ChainBreak
 
 WS_URL = "wss://stream.binance.com:9443/ws/btcusdt@depth@100ms"
 SNAP_URL = "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=1000"
-FLUSH_SECONDS = 20 
+FLUSH_SECONDS = 300 
 
 
 def fetch_snapshot():
