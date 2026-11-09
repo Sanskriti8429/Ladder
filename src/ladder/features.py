@@ -17,3 +17,8 @@ def imbalance(bid_qty, ask_qty):
     if total== 0.0:
         return 0.0
     return (bid_qty - ask_qty)/total
+
+def depth_imbalance(bids, asks, n):
+    bid_total= sum(bids[p] for p in sorted(bids, reverse= True)[:n])
+    ask_total= sum(asks[p] for p in sorted(asks, reverse= False)[:n])
+    return imbalance(bid_total, ask_total)
