@@ -57,3 +57,10 @@ y = bars["dmid_next"].to_numpy()
 b = ((x - x.mean()) * (y - y.mean())).sum() / ((x - x.mean()) ** 2).sum()
 r = np.corrcoef(x, y)[0, 1]
 print("seconds used:", len(x), " slope:", b, " R^2:", r ** 2)
+
+print("Spearman:", bars.select(pl.corr("ofi_sum", "dmid_next", method="spearman")).item())
+
+q = bars["ofi_sum"].abs().quantile(0.99)
+trim = bars.filter(pl.col("ofi_sum").abs() <= q)
+xt, yt = trim["ofi_sum"].to_numpy(), trim["dmid_next"].to_numpy()
+print("R^2 without the top 1% of |OFI|:", np.corrcoef(xt, yt)[0, 1] ** 2)

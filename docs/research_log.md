@@ -356,3 +356,48 @@ I expected the rebuilt best bid and ask to match `bookTicker` on nearly every ev
 
 ### Next
 Features computed from the book: order flow imbalance, multi-depth imbalance and microprice.
+
+## Entry 8: OFI replication on recorded top-of-book data (09-11-2026)
+
+### Goal
+Replicate the central result of Cont, Kukanov and Stoikov (2014): over a fixed interval, the change in mid price is roughly linear in order flow imbalance (OFI). Then test whether OFI predicts the next interval.
+
+### Method
+- OFI per update from the best bid and ask: +new bid size if the bid price rose or stayed, -old bid size if it fell or stayed, -new ask size if the ask fell or stayed, +old ask size if it rose or stayed. The vectorised version matches the scalar function on 2,000 random rows.
+- Computed within (session_id, segment_id) and ordered by update id, so no pair crosses a gap.
+- One-second bars: summed OFI, last mid price, mid change from the previous second. Only seconds that directly follow another second are used, so 69,192 seconds from 7.5 million updates.
+
+### Results
+- OFI per update: median -0.00006 BTC, middle half within +/-0.0005, standard deviation 0.31 (min -31.3, max +49.3). Most of the variance comes from rare large values.
+- Same-second regression of mid change on OFI: slope 0.180 dollars per BTC, R^2 = 0.628.
+- Next-second regression: slope 0.041, R^2 = 0.033, Spearman +0.268.
+- Without the top 1% of |OFI|, next-second R^2 = 0.031, so the result is not driven by extreme seconds.
+- For comparison, signed trade volume (Entry 4) explained 0.3% of the next second's change, with last-trade prices that contain bid-ask bounce.
+
+### Interpretation
+- The mechanism holds: order flow at the top of the book accounts for most of the same-second mid price movement. This is partly mechanical, because OFI includes the full queue size when the best price moves, so a large OFI and a mid move are partly the same event.
+- OFI has some predictive content one second ahead. I cannot tell real persistence from a timing artifact yet: my seconds are based on my own arrival time, and arrival times inside a clump are not meaningful.
+- Hypothesis: the rank correlation is now positive, unlike Entry 4, because the mid price from the book has no bid-ask bounce.
+
+### Expectation
+I expected the same-second regression of mid change on OFI to explain far more variance than the 0.3% I got from signed trade volume in Entry 4, since OFI and the mid price come from the same book. I expected the next-second regression to explain much less than the same-second one. I expected that removing the extreme OFI seconds might change the fit noticeably, because the OFI distribution has very heavy tails.
+
+### Surprises
+- The same-second R^2 was 0.63, and the slope (0.18) happened to be close to the 0.17 from the trades regression, even though the two use different data and features.
+- The next-second R^2 of 3.3% was small but not zero, and about ten times the trade-volume result.
+- Removing the top 1% of |OFI| changed the next-second R^2 only from 0.033 to 0.031, so the heavy tails were not driving it.
+- The Spearman correlation (+0.27) is larger than the Pearson (+0.18) and positive, the reverse of Entry 4, where the last-trade price with bid-ask bounce gave a negative rank correlation.
+- Mistake caught: I first pointed the regression's y at the wrong column, and regressing OFI on itself would have given an R^2 of exactly 1. A perfect fit is a sign of this kind of bug.
+
+### Limitations
+- In-sample, no standard errors (HAC needed), about 19 hours over several days with gaps, one asset.
+- Seconds bucketed by arrival time, not exchange time.
+- No costs, latency or fills. A correlation is not a trading result.
+
+### Open questions
+1. How much of the next-second effect remains when buckets use the exchange timestamp `E`?
+2. What are the HAC standard errors of the slope, and does the effect hold on separate days?
+3. How does the effect change with horizon (100 ms up to 10 s)?
+
+### Next
+Multi-level imbalance, microprice, and a proper walk-forward evaluation with ridge and logistic baselines.
