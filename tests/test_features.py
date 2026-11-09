@@ -1,5 +1,5 @@
 import pytest
-from ladder.features import ofi, imbalance, depth_imbalance
+from ladder.features import ofi, imbalance, depth_imbalance, microprice
 
 def test_ofi_cases():
     prev= (100.00, 5.0, 100.02, 3.0)
@@ -19,3 +19,8 @@ def test_depth_imbalance():
     assert depth_imbalance(bids, asks, 1) == pytest.approx(2 / 3)
     assert depth_imbalance(bids, asks, 2) == pytest.approx(3 / 13)
     assert depth_imbalance(bids, asks, 5) == pytest.approx(-1 / 21)
+
+def test_microprice():
+    assert microprice(100.00, 5.0, 100.02, 3.0) == pytest.approx(100.0125)
+    assert microprice(100.00, 4.0, 100.02, 4.0) == pytest.approx(100.01)
+    assert microprice(100.00, 0.0, 100.02, 4.0) == pytest.approx(100.00)

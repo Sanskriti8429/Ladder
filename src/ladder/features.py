@@ -22,3 +22,10 @@ def depth_imbalance(bids, asks, n):
     bid_total= sum(bids[p] for p in sorted(bids, reverse= True)[:n])
     ask_total= sum(asks[p] for p in sorted(asks, reverse= False)[:n])
     return imbalance(bid_total, ask_total)
+
+    
+def microprice(bid, bid_qty, ask, ask_qty):
+    total= bid_qty + ask_qty
+    if total== 0:
+        return (bid + ask)/2
+    return (bid * ask_qty + ask * bid_qty)/total
