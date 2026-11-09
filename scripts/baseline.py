@@ -29,3 +29,9 @@ print("train bars:", len(train), " test bars:", len(test))
 print("weights (const, ofi_sum, imb_last, spread_last):", w)
 print("test R^2 against the train-mean benchmark:", r2(yte, pred, ytr.mean()))
 print("test Spearman:", pl.DataFrame({"p": pred, "y": yte}).select(pl.corr("p", "y", method="spearman")).item())
+
+for cols in ([0], [1], [2], [0, 1], [0, 1, 2]):
+    A_ = np.column_stack([np.ones(len(Xtr)), Xtr[:, cols]])
+    w_, *_ = np.linalg.lstsq(A_, ytr, rcond=None)
+    p_ = np.column_stack([np.ones(len(Xte)), Xte[:, cols]]) @ w_
+    print([feats[c] for c in cols], "test R^2:", r2(yte, p_, ytr.mean()))

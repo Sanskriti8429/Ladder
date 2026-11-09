@@ -401,3 +401,51 @@ I expected the same-second regression of mid change on OFI to explain far more v
 
 ### Next
 Multi-level imbalance, microprice, and a proper walk-forward evaluation with ridge and logistic baselines.
+
+## Entry 9: First out-of-sample baseline (10-11-2026)
+
+### Goal
+Get a first honest out-of-sample number for predicting the next second's mid price change from simple book features, and find out which feature does the work.
+
+### Data and method
+- `src/ladder/dataset.py`: one-second bars from the recorded top-of-book data (7.5 million updates, 5 sessions). Features at the end of second t: summed OFI (`ofi_sum`), last queue imbalance (`imb_last`), last spread in ticks (`spread_last`). Target `y`: mid price change over second t+1. Only seconds with both a previous and a next second are kept, so no change crosses a gap. 68,991 bars.
+- `scripts/baseline.py`: linear regression by least squares (`numpy.linalg.lstsq`), trained on the first 70% of bars in time (48,293) and tested on the rest (20,693), with a 5 second embargo between them. Features are scaled with training-set means and standard deviations only. The benchmark is the training-set mean of `y`.
+- The microprice is left out on purpose: it equals mid + (spread/2) x imbalance, so with a one-tick spread it would almost copy `imb_last`.
+
+### Expectation
+I expected the out-of-sample R^2 to be below the in-sample 3.3% from Entry 8, and possibly negative.
+
+### Results
+- Full model (three features): test R^2 = 0.0725, test Spearman = 0.381. Standardised weights: `ofi_sum` 0.42, `imb_last` 0.88, `spread_last` 0.08.
+- Single features: `imb_last` 0.0648, `ofi_sum` 0.0336, `spread_last` -0.0012.
+- Pairs and full set: `ofi_sum` + `imb_last` 0.0735, all three 0.0725.
+
+### Interpretation
+- Queue imbalance does most of the work and OFI adds about one percentage point. This matches the plan to show that a simple model does most of the work.
+- `spread_last` has no signal (the spread is almost always one tick) and adding it slightly lowers the test R^2.
+- Hypothesis (not tested): OFI over the second is already mostly reflected in the price by the end of the second, while the imbalance at that moment describes the book that decides the next move.
+- The Spearman (0.38) is much higher than the R^2 suggests because squared error is dominated by a few very large moves (y ranges from -169 to +101, with the middle half exactly 0).
+
+### Mistakes caught
+- Used `1e9` (a float) as the bucket size, which loses precision at nanosecond timestamps near 1.8e18. The integer 1_000_000_000 fixes it.
+- Used the maximum imbalance in a second instead of the last, which is a different feature.
+- A feature-selection blank pointed at the test targets instead of the feature columns, which would have been a leak if it had run.
+
+### Surprises
+- The out-of-sample R^2 came out higher than the in-sample 3.3% in Entry 8, but the models differ (three features here, OFI alone there), so they are not comparable.
+- Queue imbalance beat order flow imbalance, the feature the project is built around.
+
+### Limitations
+- One time split, so the number has no uncertainty attached. The test period is the latest 30% by time and covers a different price range from the training period.
+- No standard errors. The test seconds are autocorrelated, so the effective sample is smaller than 20,693.
+- Linear model only, level-1 features only, one asset. The depth recording covers about 26 minutes, too little for deeper-level features.
+- A prediction, not a trading result: no costs, latency or fills.
+
+### Open questions
+1. How stable are these numbers across several walk-forward splits?
+2. Does OFI alone on this same split give 0.034, and is the OFI gain over imbalance alone more than noise?
+3. Does the picture change with a shorter horizon (100 ms) or a longer one (10 s)?
+4. How much of the apparent signal remains after costs?
+
+### Next
+Walk-forward validation with several splits and an embargo, then ridge and logistic baselines, and HAC standard errors.
