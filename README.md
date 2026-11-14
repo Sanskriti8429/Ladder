@@ -21,7 +21,7 @@
 - [x] Order book and matching engine with tests
 - [x] Book reconstruction (gaps, ordering, timestamps)
 - [x] Features: OFI, multi-depth imbalance, microprice
-- [ ] Baselines: ridge and logistic regression, HAC standard errors
+- [x] Baselines: ridge and logistic regression, HAC standard errors
 - [ ] Leakage experiments and purged walk-forward validation
 - [ ] Synthetic market with planted impact
 - [ ] Backtester: fees, latency sweep, queue assumptions

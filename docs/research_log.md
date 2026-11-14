@@ -546,3 +546,42 @@ I expected the up-or-down accuracy to be above 50% but well below the 84% I got,
 
 ### Next
 HAC standard errors, then leakage experiments (shuffled splits, the embargo length measurement).
+
+## Entry 12: HAC (Newey-West) standard errors (14-11-2026)
+
+### Goal
+Put honest standard errors on the OFI slope, and find out whether heteroskedasticity or autocorrelation was the reason the naive standard error was too small in Entry 4.
+
+### Method
+`scripts/hac.py`: regression of the next-second mid change `y` on `ofi_sum` over all 68,991 bars. Naive, White (heteroskedasticity-robust) and Newey-West HAC standard errors with Bartlett weights w_k = 1 - k/(L+1), written from the formula and checked against statsmodels (`cov_type="HAC"`, `use_correction=False`).
+
+### Expectation
+I expected the HAC standard error to rise with the number of lags, because order flow and price changes are autocorrelated, and to end up well above the White value.
+
+### Results
+- Slope 0.04116 dollars per BTC of OFI (Entry 8: 0.0411).
+- Naive se 0.00085 (t = 48.4). White se 0.00180 (t = 22.9).
+- HAC se: 0.00179 (L=1), 0.00168 (L=5), 0.00166 (L=10), 0.00167 (L=30), 0.00170 (L=60). t between 22.96 and 24.73.
+- statsmodels HAC at L=10: 0.00166, matching my value.
+
+### Interpretation
+- Heteroskedasticity roughly doubled the standard error (naive to White, 2.1x). The autocorrelation correction was small and in the opposite direction: HAC at L=10 is about 8% below White, and the value is flat for L from 5 to 60.
+- Hypothesis (not tested directly): the residual variance rises with the size of the flow, which is what the White correction picks up. This is the same hypothesis left open in Entry 4.
+- The slope is far from zero statistically (t about 24) but explains only 3.3% of the variance.
+
+### Surprises
+- The HAC standard error came out below the White one, not above it, so autocorrelation did not make the estimate less certain.
+- The naive-to-White ratio here (2.1x) is much smaller than in Entry 4 (4.3x), for a different regression.
+
+### Limitations
+- Rows are not evenly spaced in time (gaps were removed), so lag k means k rows and only approximately k seconds.
+- All five sessions are pooled and in-sample, with different price levels and volatility regimes.
+- Heavy-tailed variables make the asymptotic standard errors an approximation.
+- No correction for the number of things I have tried. A correlation is not a trading result.
+
+### Open questions
+1. Does the residual variance really rise with |flow|? (Bucket by |OFI| and compare residual standard deviations.)
+2. How long do features, targets and labels stay correlated, and how does that set the embargo?
+
+### Next
+Leakage experiments: a random split against a time-ordered split with a multi-second label, and the feature autocorrelation at several lags.
