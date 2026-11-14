@@ -471,11 +471,6 @@ I expected the four R^2 values to cluster around the single-split 7.2%, with a p
 - Volatility-scaled model, R^2 by block: 0.087, 0.099, 0.087, 0.062 (mean 0.084). Calibration slopes 0.99, 1.06, 0.80, 0.93.
 - Dropping the 1,300 bars without a volatility estimate moved the block boundaries by about 500 rows each and changed block 2's R^2 from 0.063 to 0.078. The per-block scores are sensitive to where the cut falls.
 
-### Ridge regression (from scratch)
-- Closed form w = (X^T X + lambda I)^-1 X^T y on standardised features, with the target centred (intercept = training mean of y/vol, not penalised). Matches scikit-learn `Ridge` to all printed digits (weights 0.08631 and 0.21912 at lambda = 10,000).
-- On the 70-85% block with the volatility-scaled target: test R^2 0.0869 for lambda from 0 to 100, 0.0883 at 10,000, 0.0135 at 1,000,000, -0.0001 at 100,000,000. The lambda = 0 row equals the OLS result from the walk-forward script.
-- Ridge does almost nothing here because there are two features and 47,378 training rows. The gain at 10,000 (+0.0014) is within the noise seen from moving the cut points.
-
 ### Interpretation
 - The signal is present in every block, so the negative R^2 in the last block was a scale problem and not a missing signal. The dollar effect of a given imbalance depends on the volatility regime, and scaling by trailing volatility mostly corrects it.
 - The single-split 7.2% in Entry 9 was at the top of the walk-forward range for the plain model. The plain walk-forward mean is 5.1%.
@@ -502,4 +497,52 @@ I expected the four R^2 values to cluster around the single-split 7.2%, with a p
 4. How long does the autocorrelation of the features last, and is 5 seconds of embargo enough?
 
 ### Next
-logistic regression on the sign of the move, HAC standard errors, then leakage experiments.
+Ridge regression from scratch (derivation, check against scikit-learn), logistic regression on the sign of the move, HAC standard errors, then leakage experiments.
+
+## Entry 11: Ridge from scratch and logistic regression on the sign of the move (14-11-2026)
+
+### Goal
+Add the next baselines to the plan: ridge regression derived and checked against scikit-learn, and a classifier for the direction of the next mid price move.
+
+### Ridge regression
+- Closed form w = (X^T X + lambda I)^-1 X^T y on standardised features with a centred target (the intercept is the training mean of `y/vol` and is not penalised). Matches scikit-learn `Ridge` to every printed digit (weights 0.08631 and 0.21912 at lambda = 10,000).
+- On the 70-85% block with the volatility-scaled target, test R^2: 0.0869 for lambda 0 to 100, 0.0883 at 10,000, 0.0135 at 1,000,000, -0.0001 at 100,000,000. The lambda = 0 row equals the OLS result from the walk-forward script.
+- Ridge does almost nothing here: two features and 47,378 training rows leave no variance to reduce. The +0.0014 at lambda = 10,000 is within the noise from moving the cut points.
+
+### Logistic regression
+- Task: up or down, with flat seconds dropped (`y == 0`). Only 12,107 of about 68,000 seconds have a nonzero mid change, so 82% of seconds are flat. My earlier assumption that about half were flat came from the trade-price series in Entry 4 and was wrong for the mid price.
+- Fit by gradient descent (5,000 steps, learning rate 0.5) on the 70-85% block, 8,474 training and 1,815 test seconds, 5 second embargo. Weights [intercept, ofi_sum, imb_last] = [0.118, -0.118, 2.351], against scikit-learn [0.118, -0.117, 2.350].
+- Test accuracy 0.841 against 0.536 for always predicting the majority side. Test log-loss 0.386 against 0.698 for a constant probability.
+- Almost all the weight is on imbalance. The OFI weight is slightly negative, which is unreliable when imbalance is in the model.
+
+### Leakage test: one extra second
+- Targeting the move two seconds ahead (1,810 test rows): accuracy 0.662, against a majority baseline of about 0.536.
+- About 60% of the edge above baseline (30.5 points to 12.6 points) disappears with one extra second of lag. Hypothesis (not separated): part of it is a timing effect at the one-second boundary, and part is ordinary signal decay. Two horizons cannot tell these apart.
+
+### Interpretation
+- When the mid price moves by one tick, the thinner queue has been used up, and the imbalance at the end of the previous second describes which side is thinner. That link is close to mechanical, so a high accuracy at a one-tick move is not absurd.
+- The 84.1% is an upper bound that may include a boundary effect. The 66.2% is the more honest figure, for one block.
+- The signal decays quickly with horizon, which is the first point of the decay curve in the plan.
+
+### Expectation
+I expected the up-or-down accuracy to be above 50% but well below the 84% I got, since the regression R^2 was only about 5 to 9%.
+
+### Surprises
+- 82% of seconds have exactly zero mid change, far more than the 51% of zero trade-price changes in Entry 4.
+- The accuracy was 84%, much higher than the regression R^2 suggested. The two answer different questions: the classifier only has to rank the direction of moves that happen, while the regression is judged on squared dollar error, which a few huge moves dominate.
+- One extra second of lag removed about 60% of the edge above the baseline.
+
+### Limitations
+- One time block with a small test set (1,815 and 1,810 rows), no standard errors, and one asset.
+- The classifier conditions on the mid moving, which is only 18% of seconds, so it says nothing about when a move will happen.
+- Features and target are one second apart, and the boundary effect is not separated from natural decay.
+- A prediction, not a trading result: no costs, latency or fills.
+
+### Open questions
+1. How does accuracy decay with horizon at finer resolution (100 ms to 10 s)? That needs the depth data with the exchange timestamp.
+2. How would a classifier for "will the mid move at all" do?
+3. How stable is the 84% across walk-forward blocks?
+4. How much of the edge survives costs and latency?
+
+### Next
+HAC standard errors, then leakage experiments (shuffled splits, the embargo length measurement).
