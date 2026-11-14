@@ -44,6 +44,7 @@ def build_bars(raw, bucket_ns=1_000_000_000):
         .with_columns(
             pl.col("dmid").shift(-1).over(GRP).alias("y"),
             pl.col("gap").shift(-1).over(GRP).alias("gap_next"),
+            pl.col("dmid").rolling_std(window_size=300, min_samples=60).over(GRP).alias("vol"),
         )
         .filter((pl.col("gap") == 1) & (pl.col("gap_next") == 1))
         .drop("gap", "gap_next")

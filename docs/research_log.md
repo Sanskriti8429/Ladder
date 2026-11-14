@@ -449,3 +449,52 @@ I expected the out-of-sample R^2 to be below the in-sample 3.3% from Entry 8, an
 
 ### Next
 Walk-forward validation with several splits and an embargo, then ridge and logistic baselines, and HAC standard errors.
+
+## Entry 10: Walk-forward validation and a volatility-scaled target (14-11-2026)
+
+### Goal
+Check how stable the 7.2% single-split R^2 from Entry 9 is, and explain the blocks where it fails.
+
+### Method
+- `scripts/walkforward.py`: four expanding-window splits with test blocks at 40-55%, 55-70%, 70-85% and 85-100% of the bars in time order, a 5 second embargo, train-only scaling, and the training mean of `y` as the benchmark. Features: `ofi_sum` and `imb_last` (`spread_last` dropped after the ablation).
+- Diagnostics per block: standard deviation of `y` in train and test, and the calibration slope (regression of actual `y` on the prediction in the test block).
+- Fix: `src/ladder/dataset.py` now adds `vol`, the standard deviation of the previous 300 seconds of mid changes (at least 60 samples). The model is trained on `y / vol` and its prediction is multiplied back by the test row's `vol`. `vol` only uses data up to the end of second t.
+
+### Expectation
+I expected the four R^2 values to cluster around the single-split 7.2%, with a possible dip in the block with the largest price move.
+
+### Results
+- Plain model, R^2 by block: 0.048, 0.078, 0.087, -0.009 (mean 0.051). Spearman 0.30 to 0.43 in every block.
+- The last block has a test `y` standard deviation of 1.91 against 4.19 in training. The test period was calmer than the training data. My first explanation (a more volatile test block) was the opposite of what the data showed.
+- Calibration slope tracks the ratio of test to train volatility: slopes 0.63, 0.78, 1.05, 0.48 against ratios 0.54, 0.67, 1.08, 0.46. The model's predictions are too large when the test period is calmer than training.
+- If each block were rescaled with its own data (an upper bound, not a usable score), R^2 would be 0.074, 0.087, 0.087, 0.056.
+- Volatility-scaled model, R^2 by block: 0.087, 0.099, 0.087, 0.062 (mean 0.084). Calibration slopes 0.99, 1.06, 0.80, 0.93.
+- Dropping the 1,300 bars without a volatility estimate moved the block boundaries by about 500 rows each and changed block 2's R^2 from 0.063 to 0.078. The per-block scores are sensitive to where the cut falls.
+
+### Interpretation
+- The signal is present in every block, so the negative R^2 in the last block was a scale problem and not a missing signal. The dollar effect of a given imbalance depends on the volatility regime, and scaling by trailing volatility mostly corrects it.
+- The single-split 7.2% in Entry 9 was at the top of the walk-forward range for the plain model. The plain walk-forward mean is 5.1%.
+
+### Mistakes caught
+- Wrong volatility hypothesis, corrected by printing the train and test standard deviations before building anything on it.
+- An indentation error and an unbalanced bracket when editing code by hand.
+
+### Surprises
+- A model with a positive rank correlation in all four blocks (0.30 to 0.43) had a negative R^2 in one of them.
+- The block scores moved noticeably when about 500 rows near each boundary were dropped.
+
+### Limitations
+- The volatility scaling was chosen after seeing these four blocks fail, so its improvement is partly tuned to this data. It needs fresh data to test it.
+- Four blocks from five sessions at different price levels. No standard errors.
+- The 300 row window counts rows, not seconds, and rows were dropped for missing neighbours, so it can span a short hole.
+- Block 3's slope of 0.80 after scaling is unexplained.
+- A prediction, not a trading result: no costs, latency or fills.
+
+### Open questions
+1. Does the volatility-scaled model hold on data recorded after this analysis?
+2. How much of the signal does ridge or a different feature set change?
+3. What are the HAC standard errors of the R^2 or of the weights across blocks?
+4. How long does the autocorrelation of the features last, and is 5 seconds of embargo enough?
+
+### Next
+Ridge regression from scratch (derivation, check against scikit-learn), logistic regression on the sign of the move, HAC standard errors, then leakage experiments.
