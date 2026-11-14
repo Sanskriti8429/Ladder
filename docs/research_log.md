@@ -622,3 +622,40 @@ I expected the random split to give a large R^2 for a model with no information,
 
 ### Next
 Rerun the walk-forward with a 30 second embargo, then build the purged and embargoed walk-forward splitter from scratch.
+
+## Entry 14: Does purging matter with the real features? (15-11-2026)
+
+### Goal
+Check whether the overlapping-label leak from Entry 13 also appears with the real features (`ofi_sum`, `imb_last`), and for which kind of model.
+
+### Method
+`leakage_museum/02_real_features.py`: 10-second label (mid change over the next 10 seconds, 67,225 bars). Two models, linear regression and 5-nearest-neighbours, each on features standardised with training statistics. Three splits at 70/30: random, naive time-ordered, and purged time-ordered (`src/ladder/splits.py`, horizon 10 s, embargo 30 s, 47,017 training rows against 47,057 for the other two).
+
+### Expectation
+I expected the nearest-neighbour model to score much higher on the random split than on the purged one, and the linear model to be about the same on all three.
+
+### Results
+- Linear: random 0.0610, naive time 0.0649, purged 0.0648.
+- Nearest-neighbour: random -0.1208, naive time -0.1990, purged -0.1993.
+- Purging removed 40 training rows.
+
+### Interpretation
+- The linear model is immune: with two features and 47k rows it cannot memorise labels, so no split inflates it. The random split was slightly the lowest of the three, which I cannot explain.
+- The nearest-neighbour model is worse than the training mean on every split. It averages 5 noisy neighbours.
+- The leak from Entry 13 (R^2 0.845) needs a model whose notion of similar rows matches closeness in time. Clock time was a perfect match. OFI and imbalance are only a partial match, because imbalance is persistent but not unique to a moment. That is why the leak is small here. This is a hypothesis from one experiment.
+
+### Surprises
+- The nearest-neighbour model gained only 0.08 from the random split, against 0.97 in Entry 13.
+- A purge that is essential in principle changed almost nothing for either model.
+
+### Limitations
+- Two features, two models, one 70/30 block, one label horizon.
+- A flexible model with more features (deeper levels, time-of-day) could still show a large leak. I have not tested that.
+- No standard errors.
+
+### Open questions
+1. Does a boosted-tree model with the same features show a bigger random-versus-purged gap?
+2. Why is the linear random-split score the lowest of the three?
+
+### Next
+Rerun with the purged splitter inside the walk-forward blocks, then move to the synthetic market.
