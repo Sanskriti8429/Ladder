@@ -471,6 +471,11 @@ I expected the four R^2 values to cluster around the single-split 7.2%, with a p
 - Volatility-scaled model, R^2 by block: 0.087, 0.099, 0.087, 0.062 (mean 0.084). Calibration slopes 0.99, 1.06, 0.80, 0.93.
 - Dropping the 1,300 bars without a volatility estimate moved the block boundaries by about 500 rows each and changed block 2's R^2 from 0.063 to 0.078. The per-block scores are sensitive to where the cut falls.
 
+### Ridge regression (from scratch)
+- Closed form w = (X^T X + lambda I)^-1 X^T y on standardised features, with the target centred (intercept = training mean of y/vol, not penalised). Matches scikit-learn `Ridge` to all printed digits (weights 0.08631 and 0.21912 at lambda = 10,000).
+- On the 70-85% block with the volatility-scaled target: test R^2 0.0869 for lambda from 0 to 100, 0.0883 at 10,000, 0.0135 at 1,000,000, -0.0001 at 100,000,000. The lambda = 0 row equals the OLS result from the walk-forward script.
+- Ridge does almost nothing here because there are two features and 47,378 training rows. The gain at 10,000 (+0.0014) is within the noise seen from moving the cut points.
+
 ### Interpretation
 - The signal is present in every block, so the negative R^2 in the last block was a scale problem and not a missing signal. The dollar effect of a given imbalance depends on the volatility regime, and scaling by trailing volatility mostly corrects it.
 - The single-split 7.2% in Entry 9 was at the top of the walk-forward range for the plain model. The plain walk-forward mean is 5.1%.
@@ -497,4 +502,4 @@ I expected the four R^2 values to cluster around the single-split 7.2%, with a p
 4. How long does the autocorrelation of the features last, and is 5 seconds of embargo enough?
 
 ### Next
-Ridge regression from scratch (derivation, check against scikit-learn), logistic regression on the sign of the move, HAC standard errors, then leakage experiments.
+logistic regression on the sign of the move, HAC standard errors, then leakage experiments.
