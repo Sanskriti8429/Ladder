@@ -600,6 +600,7 @@ I expected the random split to give a large R^2 for a model with no information,
 ### Results
 - Random split: R^2 = 0.845. Time-ordered split: R^2 = -0.131. The model has no market information.
 - Autocorrelation at lags 1, 2, 3, 5, 10, 30: `ofi_sum` 0.181, 0.087, 0.051, 0.028, 0.006, 0.004. `y` 0.118, 0.076, 0.038, 0.034, 0.014, 0.000. `imb_last` 0.827, 0.713, 0.625, 0.497, 0.301, 0.095.
+- Walk-forward rerun with a 30 second embargo instead of 5: every block's R^2 changed by 0.0005 or less (plain mean 0.0510, volatility-scaled blocks 0.0875, 0.0988, 0.0868, 0.0621). With a one-second label and a 2-parameter linear model the embargo length makes no practical difference. A more flexible model or a longer label would be more exposed.
 
 ### Interpretation
 - The 0.845 is entirely leakage. Overlapping labels let a nearest-neighbour rule copy an answer from the training bar next to each test bar. Any result this strong from a simple model is a reason to check the split first.

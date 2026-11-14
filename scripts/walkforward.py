@@ -3,7 +3,7 @@ import polars as pl
 
 bars = pl.read_parquet("data/bars_1s.parquet").sort("sec")
 feats = ["ofi_sum", "imb_last"]
-embargo = 5
+embargo = 30
 bars = bars.drop_nulls("vol").filter(pl.col("vol") > 0)
 n = len(bars)
 
