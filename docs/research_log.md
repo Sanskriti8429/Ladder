@@ -585,3 +585,39 @@ I expected the HAC standard error to rise with the number of lags, because order
 
 ### Next
 Leakage experiments: a random split against a time-ordered split with a multi-second label, and the feature autocorrelation at several lags.
+
+## Entry 13: Leakage experiment and embargo length (14-11-2026)
+
+### Goal
+Show what leakage from overlapping labels looks like, and measure how long features and targets stay correlated, so the embargo is based on data and not on a guess.
+
+### Method
+`leakage_museum/01_overlapping_labels.py`: the label is the mid change over the next 10 seconds, so neighbouring bars share 9 of 10 seconds. The model sees no market data, only each bar's clock time, and predicts with the 5 nearest training bars in time. It is scored on a random 70/30 split and on a time-ordered 70/30 split. 67,225 bars have a clean 10-second label. Autocorrelation of `ofi_sum`, `imb_last` and the one-second target is measured at lags of 1, 2, 3, 5, 10 and 30 rows.
+
+### Expectation
+I expected the random split to give a large R^2 for a model with no information, and the time-ordered one to give about zero.
+
+### Results
+- Random split: R^2 = 0.845. Time-ordered split: R^2 = -0.131. The model has no market information.
+- Autocorrelation at lags 1, 2, 3, 5, 10, 30: `ofi_sum` 0.181, 0.087, 0.051, 0.028, 0.006, 0.004. `y` 0.118, 0.076, 0.038, 0.034, 0.014, 0.000. `imb_last` 0.827, 0.713, 0.625, 0.497, 0.301, 0.095.
+
+### Interpretation
+- The 0.845 is entirely leakage. Overlapping labels let a nearest-neighbour rule copy an answer from the training bar next to each test bar. Any result this strong from a simple model is a reason to check the split first.
+- The -0.131 is what a model with no information looks like out of sample: it extrapolates stale labels and does worse than predicting the training mean.
+- `ofi_sum` and `y` decorrelate within about 3 to 5 rows, so my 5 second embargo covers them. `imb_last` is still 0.50 correlated at 5 rows and 0.30 at 10, so 5 seconds was too short for that feature. About 30 seconds brings it to 0.095.
+
+### Surprises
+- A model that only knows what time it is can score 0.845.
+- The one feature that carries most of the signal (`imb_last`) is also the most persistent, so it is the one most exposed to leakage between train and test.
+
+### Limitations
+- Lags count rows and not seconds, so a lag can span a removed gap.
+- I have not rerun the walk-forward with a 30 second embargo, so I do not know how much the Entry 10 scores change.
+- One asset, one set of sessions.
+
+### Open questions
+1. How much do the walk-forward R^2 values change with a 30 second embargo?
+2. How should the label horizon and the embargo interact when the target covers more than one second (purged cross-validation)?
+
+### Next
+Rerun the walk-forward with a 30 second embargo, then build the purged and embargoed walk-forward splitter from scratch.
