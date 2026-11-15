@@ -695,3 +695,18 @@ I expected the slope to be recovered, the naive standard error to be too small, 
 
 ### Next
 Plant the effect through the matching engine instead: simulate order arrivals into the order book, compute OFI from the simulated book, and check that the pipeline recovers the planted impact.
+
+## Entry 16: Synthetic order book through the matching engine (15-11-2026)
+
+### Goal
+Test the book code, the OFI function and the regression on a world where the mechanics are known, with the price impact coming from the matching engine and not from a formula.
+
+### Method
+`scripts/synthetic_book.py`: the `OrderBook` from stage 4, started with 10 levels per side (bids 9990-9999, asks 10001-10010, 1-5 units each). One step is 10 random events: passive buy 25% (1 to 5 ticks below the ask), passive sell 25% (1 to 5 ticks above the bid), market buy 10%, market sell 10%, cancel of a random tracked order 30%. Quantities 1 to 5. If a side empties, an order is added back. OFI is computed event by event with the tested `ofi()` and summed per step. 20,000 steps (200,000 events), one seed. The book is asserted uncrossed at the end of every step.
+
+### Expectation
+I expected a strongly positive same-step OFI slope, next-step OFI close to zero (events are independent across steps), and a positive but modest imbalance effect.
+
+### Results
+- The book was never crossed in 20,000 step-end checks. 23,963 orders were resting at the end. Mean spread 1.32 ticks. 65.1% of steps had no mid change.
+- Same step, OFI to mid

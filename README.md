@@ -23,7 +23,7 @@
 - [x] Features: OFI, multi-depth imbalance, microprice
 - [x] Baselines: ridge and logistic regression, HAC standard errors
 - [x] Leakage experiments and purged walk-forward validation
-- [ ] Synthetic market with planted impact
+- [x] Synthetic market with planted impact
 - [ ] Backtester: fees, latency sweep, queue assumptions
 - [ ] Avellaneda-Stoikov market maker
 - [ ] C++ port of the book with benchmarks
