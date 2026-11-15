@@ -798,3 +798,44 @@ The fee figures come from third-party pages and are inconsistent. The break-even
 
 ### Next
 Record the trade stream next to the book, then build a queue-position fill model.
+
+## Entry 19: Trade stream recorder and clock offset (16-11-2026)
+
+### Goal
+Record trades next to the book so passive fills can be modelled, and measure how far my clock is from the exchange's.
+
+### Method
+`src/ladder/trade_record.py` records the `btcusdt@trade` stream (raw message plus trade id, exchange time in ms, price, quantity, buyer_maker flag) with the same timed flushes, atomic writes, reconnect loop and session and segment ids as `record.py`. A 2-minute test, then a 96-minute run beside `record.py` (17:12 to 18:48 UTC on 15-11-2026). `scripts/clock_offset.py` computes arrival time minus the exchange trade time.
+
+### Expectation
+I expected the trade rate to be near the 15.5 per second of Entry 4 and the share of aggressive sellers near 50%.
+
+### Results
+- Test: 6,936 trades in about 74 s (about 94 per second), 66.0% with buyer_maker true. Price about 64,769.
+- Long run: 221,164 trades (about 38 per second) and 501,879 bookTicker rows (about 87 per second) over the same window.
+- At about 18:21:00 both feeds went silent. The book recorder timed out after 5 s and reconnected at 18:21:07. The trade recorder timed out after 30 s and reconnected at 18:21:31.
+- Arrival minus exchange trade time over 595,034 trades in the trade files (more than this run; the files hold other runs): mean -13.7 ms, median -25.9 ms, quartiles -42.2 and -7.6 ms, minimum -901 ms, maximum +5,668 ms. 81.7% of trades arrive before their timestamp.
+
+### Interpretation
+- My clock is behind the exchange's by an amount I cannot separate from the network delay. The 35 ms spread of the middle half is a measure of jitter.
+- The 30 s silence watchdog let the trade recorder miss about 31 s against about 7 s for the book. Hypothesis: a short local network drop broke both connections, and the longer watchdog kept the dead trade connection open. The watchdog is now 10 s.
+- The latency sweep in Entry 17 used arrival times on both sides, so the clock offset does not enter it. But jitter of about 35 ms means its 1 ms and 5 ms rows are not achievable from this machine.
+
+### Surprises
+- The trade rate in this window (about 38 per second) was far from both the 94 per second in the test and the 15.5 per second in Entry 4.
+- 66% of trades in the test window had an aggressive seller.
+- A minimum lag of -901 ms is inconsistent with the rest of the distribution.
+
+### Limitations
+- One outage observed. The explanation is a hypothesis.
+- The offset statistics mix every trade file, and I have not separated sessions.
+- The price in the test window (about 64,769) is far below the recorded book data (75,000 to 87,000), so this is a different regime.
+- Trade and book data come from two separate connections, so aligning them is accurate to tens of milliseconds at best.
+
+### Open questions
+1. When did the -901 ms trade happen, and was it a clock step?
+2. How much of the lag is the clock offset and how much the network delay?
+3. What is the longest normal silence between trades, to set the watchdog from data?
+
+### Next
+A queue-position fill model for passive orders, and a measure of adverse selection on filled orders.
