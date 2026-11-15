@@ -710,3 +710,62 @@ I expected a strongly positive same-step OFI slope, next-step OFI close to zero 
 ### Results
 - The book was never crossed in 20,000 step-end checks. 23,963 orders were resting at the end. Mean spread 1.32 ticks. 65.1% of steps had no mid change.
 - Same step, OFI to mid
+
+## Entry 17: First backtest on real quotes: spread crossing, latency and break-even fee (15-11-2026)
+
+### Goal
+Turn the predictions into trades on the recorded quotes, charge the cost of crossing the spread, and find out how large an exchange fee the edge could pay.
+
+### Method
+`src/ladder/backtest.py` (`trade_pnl`, tested) and `scripts/backtest_real.py`. Model: linear regression on `ofi_sum` and `imb_last`, trained on the first 70% of the one-second bars and traded on the rest after a 30 second embargo (20,668 test bars). At the end of each second the trade is buy if the predicted next move is positive and sell if negative, held 1 second, and both legs cross the spread. The order is filled at the last quote at or before send time plus a latency of 1, 5, 50 or 500 ms. A quote older than 2 seconds is ignored. Two variants: every second, and only the top 10% by |prediction| (threshold from training predictions only, 2,106 trades). PnL is per 1 BTC, in dollars. The vectorised PnL matches `trade_pnl` on 200 random trades. The break-even fee is mean gross PnL divided by mean traded value, in basis points, charged on both legs.
+
+### Expectation
+I expected a gross edge of at most about a dollar per trade after crossing the spread, and a fee to dominate it.
+
+### Results
+Every second (20,668 trades, mean |prediction| 0.876):
+
+| Latency | Mean PnL, zero fee | Hit rate | Break-even fee | Mean PnL at 1 bp |
+|---|---|---|---|---|
+| 1 ms | +0.6430 | 0.130 | 0.0391 bps | -15.795 |
+| 5 ms | +0.6410 | 0.129 | 0.0390 bps | -15.797 |
+| 50 ms | +0.6257 | 0.129 | 0.0381 bps | -15.812 |
+| 500 ms | +0.4964 | 0.118 | 0.0302 bps | -15.942 |
+
+Top 10% by |prediction| (2,106 trades, mean |prediction| 2.338):
+
+| Latency | Mean PnL, zero fee | Hit rate | Break-even fee | Mean PnL at 1 bp |
+|---|---|---|---|---|
+| 1 ms | +2.2046 | 0.393 | 0.1334 bps | -14.317 |
+| 5 ms | +2.1867 | 0.391 | 0.1324 bps | -14.335 |
+| 50 ms | +2.0559 | 0.382 | 0.1244 bps | -14.466 |
+| 500 ms | +1.3449 | 0.288 | 0.0814 bps | -15.177 |
+
+Average traded value per round trip about $164,000, so 1 bp is about $16.4 per trade.
+
+### Interpretation
+- The signal earns something after crossing the spread but far less than a fee of 1 bp: the top-10% edge is about 7 times too small and the every-second edge about 25 times too small. A real fee schedule has to be compared against 0.13 bps.
+- The edge decays with latency: at 500 ms the top 10% keeps 61% of its 1 ms edge, and every second keeps 77%. The 1 ms and 5 ms rows cannot be told apart because timestamps are arrival times and the data comes in clumps.
+- Realised edge divided by mean |prediction| is 94% (top 10%) and 73% (every second). Hypothesis (untested): the shortfall in the every-second variant comes from the calm last block, where the plain model over-scales its predictions (Entry 10).
+- A hit rate of 13% (every second) and 39% (top 10%) means most trades lose about the cost of crossing a flat spread, and the mean comes from a few large moves.
+- The edge is too small for aggressive trading at taker costs. Making use of it would need passive execution, which pays no spread but needs a model of queue position and fills.
+
+### Surprises
+- The realised edge was about twice my cost estimate of $1 per trade (0.13 bps against 0.06 bps), but still far below 1 bp.
+- The top 10% by |prediction| realised 94% of the expected edge, so the model's scale is better calibrated than I expected on this block.
+- Latency from 1 ms to 50 ms costs only 3 to 7% of the edge, and 500 ms costs 23 to 39%.
+
+### Limitations
+- Mean PnL per trade has no confidence interval yet, and the per-trade PnL is heavy-tailed.
+- One train/test split, and the test period contains the calm last block.
+- Latency is added on top of my own feed delay. The clock offset to the exchange is unmeasured, so the latencies are lower bounds on real total latency.
+- Each trade is 1 BTC filled at the best quote, but best-level sizes are often below 1 BTC. No market impact and no partial fills.
+- Fixed 1 second holding time, one asset, no fees in the headline columns except the 1 bp column.
+
+### Open questions
+1. What is the 95% interval of the mean PnL, and how much of it comes from the best 1% of trades?
+2. What do the real fee tiers imply against a break-even of 0.13 bps?
+3. How much of the edge could passive orders capture, given queue position and adverse selection?
+
+### Next
+A block-bootstrap interval and a measure of how concentrated the PnL is, then passive execution with a queue-position model.
