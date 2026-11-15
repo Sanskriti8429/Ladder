@@ -769,3 +769,32 @@ Average traded value per round trip about $164,000, so 1 bp is about $16.4 per t
 
 ### Next
 A block-bootstrap interval and a measure of how concentrated the PnL is, then passive execution with a queue-position model.
+
+## Entry 18: Fee schedule against the break-even (15-11-2026)
+
+### Goal
+Compare real exchange fees with the break-even fee of 0.13 bps (interval 0.11 to 0.16) from Entry 17.
+
+### Findings
+Third-party sources that disagree with each other; the live fee page was not checked.
+- Regular spot accounts: 0.10% maker and taker (10 bps). Paying with BNB takes 25% off (7.5 bps).
+- Top VIP tiers: maker 0.8 to 2 bps and taker 1.7 to 4 bps depending on the source.
+- One undated news item reports zero maker fees for all users and a 20% to 45% taker discount. Unverified.
+- Zero-fee campaigns on some FDUSD pairs became maker-only from 29 Jan 2026.
+
+### Interpretation
+- The standard taker fee is about 75 times the break-even, and the lowest taker figure found (about 1.7 bps) is about 13 times larger. The aggressive strategy cannot pay any of them.
+- Passive execution avoids the spread and possibly the fee, but pays adverse selection: resting orders are filled mostly by flow that is about to move the price against them. Whether the edge survives that is not yet measured.
+
+### Surprises
+No taker fee anywhere in the sources was within a factor of ten of the break-even, even for the lowest-fee tier.
+
+### Limitations
+The fee figures come from third-party pages and are inconsistent. The break-even comes from one test period.
+
+### Open questions
+1. What is the live maker fee for my account tier, and is it zero?
+2. What is the net PnL of passive fills once queue position and adverse selection are modelled?
+
+### Next
+Record the trade stream next to the book, then build a queue-position fill model.
