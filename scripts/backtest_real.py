@@ -65,3 +65,17 @@ for label, thr in [("every second", 0.0), ("top 10% by |prediction|", q90)]:
               f"mean PnL at zero fee {mean_gross:+.4f}  hit rate {(gross > 0).mean():.3f}  "
               f"break-even fee {mean_gross / traded.mean() * 1e4:+.4f} bps  "
               f"mean PnL at 1 bp {(gross - 1e-4 * traded).mean():+.3f}")
+        
+sig = test_sig.filter(pl.col("pred").abs() > q90)
+side, gross, traded, q, p = run(sig, 5_000_000)
+rng = np.random.default_rng(0)
+n, L, B = len(gross), 50, 2000
+means = np.empty(B)
+for k in range(B):
+    starts = rng.integers(0, n - L, size=n // L + 1)
+    means[k] = np.concatenate([gross[s:s + L] for s in starts])[:n].mean()
+lo, hi = np.percentile(means, [2.5, 97.5])
+tv = traded.mean()
+print(f"\ntop 10%, 5 ms: mean gross PnL {gross.mean():+.3f}, 95% block-bootstrap interval [{lo:+.3f}, {hi:+.3f}]")
+print(f"break-even fee {gross.mean() / tv * 1e4:+.4f} bps, interval [{lo / tv * 1e4:+.4f}, {hi / tv * 1e4:+.4f}] bps")
+print("share of total gross PnL from the best 1% of trades:", round(np.sort(gross)[-(n // 100):].sum() / gross.sum(), 3))

@@ -742,6 +742,7 @@ Top 10% by |prediction| (2,106 trades, mean |prediction| 2.338):
 | 500 ms | +1.3449 | 0.288 | 0.0814 bps | -15.177 |
 
 Average traded value per round trip about $164,000, so 1 bp is about $16.4 per trade.
+- Block bootstrap (blocks of 50 consecutive trades, 2,000 resamples) for the top 10% at 5 ms: mean gross PnL +2.187, 95% interval [+1.843, +2.572]. Break-even fee 0.1324 bps, interval [0.1115, 0.1557] bps. The best 1% of trades (21 of 2,106) contribute 12.1% of the total gross PnL, so the edge is not concentrated in a handful of trades. The interval covers sampling noise within this one test period only.
 
 ### Interpretation
 - The signal earns something after crossing the spread but far less than a fee of 1 bp: the top-10% edge is about 7 times too small and the every-second edge about 25 times too small. A real fee schedule has to be compared against 0.13 bps.
@@ -763,9 +764,8 @@ Average traded value per round trip about $164,000, so 1 bp is about $16.4 per t
 - Fixed 1 second holding time, one asset, no fees in the headline columns except the 1 bp column.
 
 ### Open questions
-1. What is the 95% interval of the mean PnL, and how much of it comes from the best 1% of trades?
-2. What do the real fee tiers imply against a break-even of 0.13 bps?
-3. How much of the edge could passive orders capture, given queue position and adverse selection?
+1. What do the real fee tiers imply against a break-even of about 0.13 bps (interval 0.11 to 0.16)?
+2. How much of the edge could passive orders capture, given queue position and adverse selection?
 
 ### Next
 A block-bootstrap interval and a measure of how concentrated the PnL is, then passive execution with a queue-position model.
