@@ -659,3 +659,39 @@ I expected the nearest-neighbour model to score much higher on the random split 
 
 ### Next
 Rerun with the purged splitter inside the walk-forward blocks, then move to the synthetic market.
+
+## Entry 15: Synthetic market with a planted slope (15-11-2026)
+
+### Goal
+Check the regression and standard-error code against a known answer: plant a slope, simulate many datasets, and see whether the estimate and its standard errors behave.
+
+### Method
+`scripts/synthetic.py`: order flow is an AR(1) series with lag-1 autocorrelation 0.18 and unit variance (Laplace innovations for heavy tails). The next step's price change is y = 0.05 x + noise, with noise standard deviation 0.2 (1 + 0.5 |x|), so it grows with the flow. 300 simulations of 70,000 steps each. For each: OLS slope and naive, White and Newey-West (L = 10) standard errors, and whether the 95% interval contains the true slope.
+
+### Expectation
+I expected the slope to be recovered, the naive standard error to be too small, and White and HAC to be close to 95% coverage.
+
+### Results
+- True slope 0.05, mean estimate 0.04992 (bias -0.00008). The R^2 of one dataset is 0.0336, close to the 3% seen in the real predictive regression.
+- The spread of the estimate across simulations, which is the true standard error, is 0.00177.
+- Naive se 0.00106 (coverage 75.3%). White 0.00161 (91.7%). HAC(10) 0.00161 (91.7%).
+
+### Interpretation
+- The estimator is unbiased and the planted effect is recovered, so the regression code is correct on data where the answer is known.
+- The naive standard error understates the true uncertainty by about 40%, matching what I found on real data (Entries 4 and 12). White and HAC are much better but fall about 2 points short of the nominal 95%. With 300 simulations the coverage itself has a standard error of about 1.6 points, so the shortfall is borderline. Hypothesis (untested): a small-sample bias with heavy-tailed noise that depends on the regressor.
+- HAC equals White here because the noise is independent across steps. On real data HAC came out 8% below White, so the real residuals have some negative autocorrelation that the simulator does not contain.
+
+### Surprises
+(fill in) The naive formula's coverage was only 75%, far from the 95% it claims.
+
+### Limitations
+- The simulator plants the effect directly in a statistical model. It does not go through the order book, so it tests the regression code and not the book code.
+- The noise model is simple (independent, scaled by |x|). It has no volatility clustering, no regimes and no autocorrelation in the residuals.
+- 300 simulations: coverage figures are good to about plus or minus 1.6 points.
+
+### Open questions
+1. What does the coverage look like with volatility clustering in the noise?
+2. Does the estimator stay unbiased when the planted effect is nonlinear or changes with the regime?
+
+### Next
+Plant the effect through the matching engine instead: simulate order arrivals into the order book, compute OFI from the simulated book, and check that the pipeline recovers the planted impact.
