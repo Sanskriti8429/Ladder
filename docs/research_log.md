@@ -1147,3 +1147,35 @@ I expected inventory control to cut the variance of profit and of inventory at a
 
 ### Next
 Rerun with 200 paths, then add persistent flow to the simulator.
+
+## Entry 27: Python order book benchmark (16-11-2026)
+
+### Goal
+Measure the throughput and latency of the Python order book, and record a checksum that a C++ port must reproduce exactly.
+
+### Method
+`scripts/gen_events.py` writes a deterministic event log (numpy seed 42, 1,000,000 events): 533,475 limit orders (some crossing the spread), 159,894 market orders, 306,631 successful cancels. The book stays near 5,000 resting orders with about 100 price levels per side. `scripts/bench_python.py` replays the log twice: one pass timed in total, one pass with a timer around every call and a 64-bit FNV-style checksum over every fill (order id, price, quantity, in order) and every cancel result.
+
+### Expectation
+I had no prediction written down. For reference: about 250k events per second, market orders slowest.
+
+### Results
+- 4.02 s for 1,000,000 events: 248,745 events per second, 4.02 microseconds per event.
+- Latency (median, p99, p99.9, max): limit order 4.26, 12.59, 92.70 microseconds and 5.3 ms. Market order 4.67, 15.05, 89.58 microseconds and 4.5 ms. Cancel 2.14, 7.15, 55.40 microseconds and 6.9 ms.
+- Final state: 4,998 resting orders, 120 bid levels, 101 ask levels, best bid 9972, best ask 9976, 315,871 fills.
+- Expected line for the port: `4998 9972 9976 315871 4f1dbc0a1f073d61`.
+
+### Interpretation
+- The count-weighted mean of the medians is 3.67 microseconds against a measured mean of 4.02, so the tail adds about 10%.
+- Hypothesis (not profiled): `_match` sorts all opposite price levels on every limit and market order, which would explain why cancels are twice as fast.
+- Hypothesis (not tested): the p99.9 and maximum latencies come from garbage collection and OS scheduling.
+
+### Limitations
+One machine under WSL, one event mix, one run. The per-event timer adds about 0.1 microseconds, which matters for cancels. Percentiles are not repeated across runs.
+
+### Open questions
+1. How much faster is a straightforward C++ port, and does its tail shrink?
+2. How much of the Python time is the sort in `_match`?
+
+### Next
+C++ port of the book, checked against this checksum.
