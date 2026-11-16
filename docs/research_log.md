@@ -980,3 +980,38 @@ The plain model scored higher than the scaled one on both fresh sessions, and th
 
 ### Next
 Market making: the Avellaneda-Stoikov quotes, first replicated in a simulation, then run on the synthetic book.
+
+
+## Entry 23: Avellaneda-Stoikov replication (16-11-2026)
+
+### Goal
+Reproduce the central result of Avellaneda and Stoikov (2008) before using the model on anything of mine: quoting around an inventory-adjusted reservation price reduces the variance of profit and of final inventory, at a small cost in mean profit.
+
+### Method
+`scripts/avellaneda_stoikov.py`: mid price S follows dS = sigma dW (S0 = 100, sigma = 2, T = 1, 200 steps), fills at rate A exp(-k delta) per side (A = 140, k = 1.5), risk aversion gamma = 0.1, 5,000 paths. Inventory strategy: reservation price r = s - q gamma sigma^2 (T - t), total spread gamma sigma^2 (T - t) + (2/gamma) ln(1 + gamma/k), quotes at r plus or minus half the spread. Symmetric strategy: quotes around the mid with a constant spread equal to the time average of the optimal one (1.492). Both strategies see the same random draws.
+
+### Expectation
+I expected the inventory strategy to have a much lower variance of profit and of final inventory and a slightly lower mean profit.
+
+### Results
+- Spread: 1.691 at the start, 1.293 at the end, 1.492 time-averaged.
+- Inventory strategy: profit mean 64.77, std 6.46; final inventory mean +0.04, std 2.92, max absolute 11.
+- Symmetric strategy: profit mean 68.11, std 13.55; final inventory mean -0.03, std 8.48, max absolute 33.
+
+### Interpretation
+- The inventory strategy gives up 5% of the mean profit and halves its standard deviation (0.48), and its final inventory spread is about a third as wide (0.34). Mean profit per unit of profit std doubles (10.0 against 5.0).
+- The mean profit gap is about 15 standard errors, and the final inventory means are consistent with zero.
+- The model assumes fills independent of future price moves. Entries 20 and 21 show that real fills are adverse-selected, so this result does not show that inventory control works on real data.
+
+### Surprises
+The profit and inventory spreads differ by factors of two and three while the mean profit differs by only 5%.
+
+### Limitations
+One parameter set, one seed, and a stylised world: Brownian mid, Poisson fills with an exponential intensity, no adverse selection, no fees, constant sigma. The parameters are not taken from Binance data.
+
+### Open questions
+1. What A, k and sigma does the real data give, and is the fill intensity exponential in the distance at all?
+2. Does inventory control still reduce risk when fills are adverse-selected?
+
+### Next
+Estimate A, k and sigma from the recorded trades and book.
