@@ -1065,3 +1065,38 @@ My expectation of a poor exponential fit was wrong for the tail (R^2 0.98 to 0.9
 
 ### Next
 Separate the first trade of each order from its continuations, then run the quotes on the synthetic book.
+
+## Entry 25: Is the tail of the trade distance distribution made of sweeps? (16-11-2026)
+
+### Goal
+Find out whether the heavy tail in Entry 24 (trades far from the mid) consists of the later trades of a single order that sweeps several price levels.
+
+### Method
+`scripts/calibrate_as_sweeps.py`, same session and data as Entry 24. Trades are sorted by trade id, and a trade is marked as the first of an order when its exchange time in milliseconds or its direction differs from the previous trade's. This groups every trade in the same millisecond and direction, so it can merge separate orders.
+
+### Expectation
+I expected the share of trades reaching $1 or more to fall by more than half when only the first trade of each order is kept.
+
+### Results
+- 220,850 trades, of which 19,980 (9.0%) are the first of a group, about 11 trades per group.
+- Share of buyer trades reaching a distance (all trades, then first trades only): at $0.5 0.0967 and 0.0474, at $1 0.0789 and 0.0384, at $2 0.0467 and 0.0222, at $5 0.0118 and 0.0052, at $10 0.0017 and 0.0009 (10,584 first trades).
+- Seller trades: at $0.5 0.0626 and 0.0428, at $1 0.0516 and 0.0350, at $2 0.0319 and 0.0206, at $5 0.0105 and 0.0044, at $10 0.0033 and 0.0012 (9,396 first trades).
+- Share reaching $1 or more falls 51% for buyers and 32% for sellers when only the first trade is kept.
+
+### Interpretation
+- Sweeps explain part of the tail, about half of it for buyers and a third for sellers, but not all of it. 3.5% to 3.8% of first trades still reach $1 and about 0.1% reach $10.
+- The grouping by millisecond and direction probably merges separate orders, so the true first-trade count is larger and the true share of the tail explained by sweeps is probably smaller than the figures above (not tested).
+- The first trade of a group can still be far from the mid if the quote I compare it with was stale when the trade arrived. Not separated here.
+
+### Surprises
+The tail survived: about a tenth of one percent of first trades are $10 or more from the mid.
+
+### Limitations
+One 1.6 hour session. The grouping rule is crude. Book and trade streams come from separate connections with an unknown clock offset.
+
+### Open questions
+1. How much of the remaining tail disappears when the mid is looked up at the exchange's own trade time instead of my arrival time?
+2. Is a gap in the book quotes around the trade (a quiet book that then jumps) the cause?
+
+### Next
+Redo the distance measure using the exchange timestamp, with the clock offset estimated from the data.
