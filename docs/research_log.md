@@ -1100,3 +1100,50 @@ One 1.6 hour session. The grouping rule is crude. Book and trade streams come fr
 
 ### Next
 Redo the distance measure using the exchange timestamp, with the clock offset estimated from the data.
+
+## Entry 26: Market making inside the synthetic order book (16-11-2026)
+
+### Goal
+Test whether Avellaneda-Stoikov inventory quotes still reduce risk when the fills come from a matching engine and not from a Poisson model.
+
+### Method
+`scripts/mm_synthetic.py`, in ticks and steps (one step = 10 random book events). The Entry 16 simulator was changed in two ways: a cancel now keeps drawing until it removes a live order (the old version often hit already-filled ids, which let the book grow without bound), and adds are more likely below a target of 60 resting orders and less likely above it, so the order count is stable. If the book is empty it is rebuilt. Calibration run of 10,000 steps gives sigma and k. The market maker cancels its quotes and reposts one unit at an integer tick at every step, losing queue priority each time. Strategies: symmetric (half-spread equal to the time average of the optimal one at g = 1) and inventory quotes at g = 0.5, 1 and 2, where g = gamma sigma^2 T is the reservation price shift in ticks per unit of inventory at the start. 16 paths of 1,500 steps each.
+
+### Expectation
+I expected inventory control to cut the variance of profit and of inventory at a small cost in mean profit. I expected the mid move after a fill to be negative, as on real data, but was unsure because the simulator only contains the idea that a thin queue is used up first.
+
+### Results
+- Calibration (10,000 steps): 58 resting orders at the end (Entry 16 grew to 23,963), sigma 0.633 ticks per sqrt(step), exponential fit A = 5.44 per step, k = 1.92 per tick on 4 points, R^2 0.990. No break at the touch.
+- Symmetric half-spread 0.771 ticks.
+- Profit (se), std, final inventory (mean, std), mean |q|, max |q|, fills per path: symmetric 165.0 (46.8), 187.2, +1.4, 20.0, 10.2, 44, 293.5. Inventory g = 0.5: 150.6 (5.6), 22.3, -0.9, 2.7, 0.6, 5, 377.4. g = 1: 139.8 (4.7), 18.6, +0.8, 2.3, 0.5, 6, 345.9. g = 2: 109.8 (3.8), 15.3, -0.1, 1.3, 0.3, 4, 280.4.
+- Mid move in the step after a fill (positive = good for us), n fills: symmetric +0.021 (4,694), g = 0.5 -0.014 (6,035), g = 1 -0.040 (5,529), g = 2 -0.043 (4,483). Within the fill step: -0.655, -0.530, -0.529, -0.543.
+### Rerun with 200 paths
+- Symmetric: profit 178.9 (se 8.6), std 121.7, final inventory -0.1 (std 16.3), mean |q| 8.6, max |q| 48, 290.3 fills per path. Inventory g = 0.5: 152.9 (1.5), 20.6, -0.3 (2.4), 0.6, 8, 378.7. g = 1: 138.9 (1.2), 17.6, +0.1 (1.9), 0.5, 8, 350.8. g = 2: 102.3 (1.2), 16.4, 0.0 (1.7), 0.3, 7, 278.3.
+- Mean profit gaps to symmetric: 26.0, 40.0 and 76.6, which is 3.0, 4.6 and 8.8 standard errors (paths treated as independent). The cost of inventory control is 15%, 22% and 43% of the symmetric profit. Mean profit divided by profit std is 1.47 (symmetric) against 7.4, 7.9 and 6.2.
+- Mid move after a fill: +0.023, -0.023, -0.039, -0.059 (n 58,021 to 75,707), which is +0.04 to -0.09 sigma. It becomes more negative as g rises, which I cannot explain.
+- The 16-path standard error of the symmetric profit (46.8) was inflated by outlier paths: the standard deviation of profit fell from 187 to 122 with more paths, so the symmetric profit distribution has a heavy tail.
+
+### Interpretation
+- Inventory control cuts the standard deviation of profit to 8 to 12% of the symmetric one, the final inventory standard deviation to 7 to 14%, and mean |q| from 10.2 to 0.3 to 0.6. The mean profit gaps to the symmetric strategy are 0.3, 0.5 and 1.2 standard errors, so with 16 paths none is established.
+- The reduction is much larger than in the continuous model of Entry 23 (0.48 and 0.34). Not investigated. Possible contributors: integer ticks and reposting every step.
+- Fills fall as g rises (377, 346, 280), consistent with the time-average spread widening from 1.29 to 1.54 to 2.04 ticks (my arithmetic from the formula).
+- The move after a fill is 0.03 to 0.07 of sigma, against 0.74 and 1.09 on real data (Entry 20). The within-step move (about 0.8 to 1.0 of sigma) includes the market order that causes the fill, so it is mechanical. The simulator has no continued move after a fill because order flow has no persistence, the ingredient missing in Entry 16.
+- So the result shows that inventory control works when fills are not followed by continued moves. It does not show that it works on real fills.
+
+### Surprises
+- The cancel fix removed the growth of the book (23,963 orders in Entry 16, 58 here).
+- Inventory standard deviation fell by an order of magnitude.
+- Each strategy ran in about a second.
+
+### Limitations
+- 16 paths: the profit comparison has wide intervals.
+- The simulator has no persistent flow, no volatility clustering and a ten-level book, with prices inside about 8 ticks of the mid. A real $0.5 is 50 ticks, so k is not comparable with Entry 24.
+- One unit per quote, reposted every step, no fees.
+- Within-step and after-fill moves are measured in step units, so they are not directly comparable with the 1 second horizon in Entry 20.
+
+### Open questions
+1. Does inventory control still reduce risk once order flow is persistent and fills are adverse-selected?
+2. Does adding persistent order flow to the simulator (meta-orders) create the post-fill adverse selection seen in the real data, and does inventory control still work?
+
+### Next
+Rerun with 200 paths, then add persistent flow to the simulator.

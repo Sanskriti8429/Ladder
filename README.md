@@ -25,7 +25,7 @@
 - [x] Leakage experiments and purged walk-forward validation
 - [x] Synthetic market with planted impact
 - [x] Backtester: fees, latency sweep, queue assumptions
-- [ ] Avellaneda-Stoikov market maker
+- [x] Avellaneda-Stoikov market maker
 - [ ] C++ port of the book with benchmarks
 - [ ] Gradient boosting, then a small neural net
 - [ ] Replay dashboard
