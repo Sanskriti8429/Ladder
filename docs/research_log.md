@@ -1015,3 +1015,53 @@ One parameter set, one seed, and a stylised world: Brownian mid, Poisson fills w
 
 ### Next
 Estimate A, k and sigma from the recorded trades and book.
+
+## Entry 24: Calibrating the market-making parameters from recorded trades (16-11-2026)
+
+### Goal
+Estimate the Avellaneda-Stoikov inputs (fill intensity A exp(-k delta) and sigma) from the recorded trades and book, instead of using the simulation's made-up values.
+
+### Method
+`scripts/calibrate_as.py`, on the 17:12 to 18:48 UTC session (220,850 trades). For each aggressive trade, delta is the distance of the trade price from the mid of the last recorded quote before the trade (arrival-time alignment, accurate to tens of milliseconds). The rate of trades reaching at least delta, per second, stands in for the fill rate of a resting order at that distance, ignoring queue position. A log-linear fit is made over delta >= 0.5 with at least 30 trades per point. Sigma is the standard deviation of one-second mid changes over seconds with fresh quotes (5,061 changes).
+
+### Expectation
+I expected the exponential fit to be poor and most trades to sit within a cent of the mid.
+
+### Results
+| delta ($) | Buyers hitting asks: count, rate/s | Sellers hitting bids: count, rate/s |
+|---|---|---|
+| 0.0 | 76,348, 13.29 | 144,502, 25.15 |
+| 0.5 | 7,386, 1.286 | 9,046, 1.575 |
+| 1.0 | 6,026, 1.049 | 7,454, 1.297 |
+| 2.0 | 3,569, 0.621 | 4,604, 0.801 |
+| 5.0 | 901, 0.157 | 1,511, 0.263 |
+| 10.0 | 130, 0.023 | 472, 0.082 |
+| 20.0 and 40.0 | 0 | 0 |
+
+- Buyers hitting asks: A = 1.517 per second, k = 0.4272 per dollar, log-fit R^2 0.997. Local k between grid points: 0.407, 0.524, 0.459, 0.387.
+- Sellers hitting bids: A = 1.624 per second, k = 0.3117 per dollar, R^2 0.981. Local k: 0.387, 0.482, 0.371, 0.233.
+- Share of trades reaching at least $1: 7.9% (buyers), 5.2% (sellers). At least $0.5: 9.7% and 6.3%.
+- Sigma = 4.294 dollars per square root of a second.
+
+### Interpretation
+- Beyond $0.5 the rate is close to exponential for buyers, and for sellers until about $5. The fit uses five points and two parameters, so R^2 is weak evidence.
+- The exponential breaks at the touch. Between delta 0 and 0.5 the rate falls by a factor of 10 (buyers) and 16 (sellers), local k 4.7 and 5.5 against 0.2 to 0.5 in the tail. The fitted curves extrapolated to delta 0 are 9 and 15 times below the observed rates, so one (A, k) cannot describe both the touch and the tail.
+- From the formula as I remember it, the total optimal spread tends to 2/k for small gamma, which is $4.7 to $6.4 with these k, so quotes about $2.3 to $3.2 each side of the mid against a market spread of one cent. To be checked against the paper.
+- Hypotheses for part of the tail (untested): market orders that sweep several levels recorded as several trades, and a stale mid (book and trades on separate connections, jitter about 35 ms).
+- The simulation parameters (sigma 2, k 1.5, A 140) are far from the real values (sigma 4.29, k 0.31 to 0.43, A about 1.5 per second).
+
+### Surprises
+My expectation of a poor exponential fit was wrong for the tail (R^2 0.98 to 0.997) and right for the touch.
+
+### Limitations
+- One 1.6 hour window, sell-heavy, one price level.
+- The rate of trades reaching delta is not a fill rate: it ignores queue position, and my earlier fill model showed that fills are adverse-selected.
+- The mid used for delta may be stale by tens of milliseconds.
+- Five fit points, no intervals.
+
+### Open questions
+1. How much of the tail is sweeps of one order (first trade of each order against all trades) and how much a stale mid?
+2. Does the tail change if delta is measured against the quote that the trade actually hit?
+
+### Next
+Separate the first trade of each order from its continuations, then run the quotes on the synthetic book.
