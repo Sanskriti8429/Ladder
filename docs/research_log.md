@@ -814,7 +814,7 @@ I expected the trade rate to be near the 15.5 per second of Entry 4 and the shar
 - Test: 6,936 trades in about 74 s (about 94 per second), 66.0% with buyer_maker true. Price about 64,769.
 - Long run: 221,164 trades (about 38 per second) and 501,879 bookTicker rows (about 87 per second) over the same window.
 - At about 18:21:00 both feeds went silent. The book recorder timed out after 5 s and reconnected at 18:21:07. The trade recorder timed out after 30 s and reconnected at 18:21:31.
-- Arrival minus exchange trade time over 595,034 trades in the trade files (more than this run; the files hold other runs): mean -13.7 ms, median -25.9 ms, quartiles -42.2 and -7.6 ms, minimum -901 ms, maximum +5,668 ms. 81.7% of trades arrive before their timestamp.
+- The trade files hold three sessions: 6,936 trades (the 2-minute test), 366,934 (85 minutes, 15:41 to 17:07 UTC) and 221,164 (96 minutes, 17:12 to 18:48 UTC). Trade rates were about 98, 72 and 38 per second. The clock offset statistics below pool all 595,034 trades.
 
 ### Interpretation
 - My clock is behind the exchange's by an amount I cannot separate from the network delay. The 35 ms spread of the middle half is a measure of jitter.
@@ -839,3 +839,102 @@ I expected the trade rate to be near the 15.5 per second of Entry 4 and the shar
 
 ### Next
 A queue-position fill model for passive orders, and a measure of adverse selection on filled orders.
+
+## Entry 20: Passive fills and adverse selection (16-11-2026)
+
+### Goal
+Measure what a resting order earns on the recorded book and trades: how often it fills, how long it takes, and how the price moves after a fill.
+
+### Method
+`scripts/passive_fill.py`, on the 17:12 to 18:48 UTC session (1.6 hours, 501,879 book rows, 220,850 trades). At the end of every second a 0.01 BTC order is posted at the best bid and another at the best ask. It joins the back of the queue (the queue ahead is the displayed size at the touch). It fills when aggressive volume at its price exceeds the queue ahead plus its size, or when any trade goes through its price. Cancels ahead are ignored. An unfilled order is cancelled after 10 s. PnL per 1 BTC is measured against the mid 1 s after the fill and against the opposite quote. Posting times near a real hole in either feed (a book silence over 3 s, or a trade reconnect) are skipped.
+
+### Expectation
+I expected most posted orders to fill within 10 seconds and the mid to move against filled orders more often than at a random time.
+
+### Results
+Corrected run, 5,011 decision times, mean mid 64,648.4, 65.4% of trades with an aggressive seller, mean 1 s mid change at random times -0.051:
+- Buy: fill rate 0.631 (3,160 fills), mean time to fill 3.00 s. Move 1 s after the fill (positive = good for us) -3.177. PnL per BTC, mid exit -5.034, opposite-quote exit -5.049.
+- Sell: fill rate 0.550 (2,756 fills), mean time to fill 3.20 s. Move 1 s after the fill -4.690. PnL, mid exit -6.303, opposite-quote exit -6.308.
+- The PnL minus the post-fill move implies the mid had already moved $1.86 (buys) and $1.61 (sells) against us at the instant of the fill.
+- Std of the 1 s mid change in this window: 4.314, so the post-fill moves (-3.177 buys, -4.690 sells) are 0.74 and 1.09 standard deviations.
+- Share of fills that were trade-throughs: 81.0% (buys), 91.6% (sells).
+- By imbalance at posting time, in five equal-sized buckets (bucket 0 = ask-heavy, 4 = bid-heavy), about 1,002 posted orders each:
+
+| Bucket | Buy fill rate | Buy PnL per posted order | Buy PnL per fill | Sell fill rate | Sell PnL per posted order | Sell PnL per fill |
+|---|---|---|---|---|---|---|
+| 0 | 0.904 | -3.489 | -3.859 | 0.335 | -1.747 | -5.210 |
+| 1 | 0.697 | -3.356 | -4.818 | 0.420 | -2.434 | -5.794 |
+| 2 | 0.618 | -3.525 | -5.706 | 0.544 | -3.643 | -6.698 |
+| 3 | 0.524 | -2.915 | -5.564 | 0.643 | -4.425 | -6.885 |
+| 4 | 0.411 | -2.589 | -6.302 | 0.808 | -5.080 | -6.290 |
+
+### Mistake caught
+My first run treated any trade silence over 3 s as a hole. For trades that flagged 51 ordinary quiet spells, so the script skipped quiet periods and kept busy ones (4,262 decision times). The real holes are reconnects, one in this window. Corrected, the buy fill rate fell from 0.663 to 0.631 and the other numbers moved by less than $0.25, so the result did not depend on the flaw.
+
+### Interpretation
+- Adverse selection is large and goes against the order on both sides, so it is not a trend effect: a falling market would help one side. A resting order that fills tends to fill just before the price moves through it.
+- Posting at both quotes with no signal loses about $5 to $6 per BTC, about 0.8 to 1.0 bps of the price, far more than the spread saved. Even at a zero maker fee, naive passive quoting does not work.
+- Buys fill more often than sells, consistent with the sell-heavy flow in this window (hypothesis, not isolated).
+- Hypothesis (not measured): most fills come from the trade price moving through the order, which explains why the mid is already beyond the order's price at the fill.
+- Fill rate is driven mainly by the queue ahead (monotonic across buckets), which is mechanical.
+- Conditioning on imbalance reduces the loss per posted order (best cells -2.59 for buys and -1.75 for sells) but mostly by filling less. Per fill, the loss is worse in the favourable bucket for buys (-6.30 against -3.86) and better for sells (-5.21 against -6.29), so imbalance at posting time does not remove the adverse selection among filled orders. No bucket is positive. No intervals yet: the orders overlap in time.
+- 81% and 92% of fills being trade-throughs confirms that the mid is already beyond the order at the fill. The queue model ignores cancels ahead, which makes depletion fills rarer, so this share and the adverse selection are probably overstated.
+
+### Surprises
+The size of the adverse selection: a post-fill move of $3 to $4.7 against a random-time drift of $0.05.
+
+### Limitations
+- Orders are posted every second and live up to 10 s, so fills overlap heavily and the effective sample is much smaller than 5,900 fills. No confidence interval yet.
+- Book and trade data come from two separate connections, so aligning them is accurate to tens of milliseconds at best. A book update for a trade can arrive after the trade message.
+- Cancels ahead of the order are ignored, which makes fills slower than real ones.
+- One 1.6 hour window, one price regime, a sell-heavy market, no signal used to choose when to post.
+
+### Open questions
+1. How many fills are trade-throughs and how many are queue depletion at the price?
+2. Does posting only when the book imbalance favours the order avoid most of the adverse selection?
+3. What is this window's 1 second standard deviation of the mid change, to put the $3 to $4.7 into context?
+
+### Next
+Condition on imbalance at the posting time and split the fills by type.
+
+## Entry 21: Passive fills, sensitivity to cancels ahead in the queue (16-11-2026)
+
+### Goal
+Check whether the adverse selection in Entry 20 is an artifact of ignoring cancels ahead of my order in the queue.
+
+### Method
+`scripts/passive_sensitivity.py`: the same fill model and the same 5,011 decision times as `scripts/passive_fill.py`, with the queue ahead multiplied by (1 - c), where c is the share that cancels before my fill. c = 0 is the model in Entry 20 and c = 1 is the front of the queue.
+
+### Expectation
+I expected the loss per fill to shrink as c rises, and the PnL per posted order to stay negative even at c = 1.
+
+### Results
+| c | Buy fill rate | Buy trade-through | Buy PnL per fill | Buy PnL per posted | Sell fill rate | Sell trade-through | Sell PnL per fill | Sell PnL per posted |
+|---|---|---|---|---|---|---|---|---|
+| 0.00 | 0.631 | 0.810 | -5.034 | -3.175 | 0.550 | 0.916 | -6.302 | -3.466 |
+| 0.25 | 0.639 | 0.681 | -4.844 | -3.097 | 0.553 | 0.845 | -6.230 | -3.446 |
+| 0.50 | 0.654 | 0.594 | -4.586 | -2.999 | 0.558 | 0.771 | -6.107 | -3.410 |
+| 0.75 | 0.685 | 0.454 | -3.968 | -2.719 | 0.569 | 0.651 | -5.789 | -3.296 |
+| 1.00 | 0.814 | 0.151 | -2.175 | -1.771 | 0.726 | 0.184 | -3.265 | -2.372 |
+
+The c = 0 row reproduces the Entry 20 numbers.
+
+### Interpretation
+- Ignoring cancels does overstate the loss: from c = 0 to c = 1 the loss per fill falls by 57% (buys) and 48% (sells). But the PnL per posted order is negative in every row, -$1.77 and -$2.37 per BTC at the best case (about 0.27 and 0.37 bps), so naive passive quoting loses even at a zero maker fee.
+- At c = 1 only 15% to 18% of fills are trade-throughs, and the mid still moves $2.2 to $3.3 against the order. So the adverse selection is not only the trade-through artifact. Hypothesis (untested): a trade at the touch signals aggressive flow that continues.
+- c = 1 is a bound no real order reaches. The true cancel share is unknown.
+
+### Surprises
+At c = 1 the loss per fill was still $2.2 to $3.3.
+
+### Limitations
+- Same 1.6 hour window, same overlapping orders, no intervals.
+- The cancel share is a single number applied to the whole queue, not a model of when orders are cancelled.
+- Book and trade data come from two connections.
+
+### Open questions
+1. What is the real cancel share ahead of the touch? The depth stream could estimate it (change in touch size minus traded volume at that price).
+2. Does a signal for when to post make the filled orders profitable?
+
+### Next
+Test the volatility-scaled model on the new sessions, which are the first data it has not been tuned on, then post passive orders only when the signal says so.

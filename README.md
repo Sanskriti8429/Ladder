@@ -24,7 +24,7 @@
 - [x] Baselines: ridge and logistic regression, HAC standard errors
 - [x] Leakage experiments and purged walk-forward validation
 - [x] Synthetic market with planted impact
-- [ ] Backtester: fees, latency sweep, queue assumptions
+- [x] Backtester: fees, latency sweep, queue assumptions
 - [ ] Avellaneda-Stoikov market maker
 - [ ] C++ port of the book with benchmarks
 - [ ] Gradient boosting, then a small neural net
