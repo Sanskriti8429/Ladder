@@ -1179,3 +1179,43 @@ One machine under WSL, one event mix, one run. The per-event timer adds about 0.
 
 ### Next
 C++ port of the book, checked against this checksum.
+
+## Entry 28: C++ port of the order book (16-11-2026)
+
+### Goal
+Port the Python order book to C++ with identical behaviour, and measure what the port buys.
+
+### Method
+`cpp/orderbook.hpp`: a direct port of the same algorithm (std::map of price level to std::deque of orders per side, unordered_map from order id to side and price, cancel by scanning the level's queue). `cpp/bench.cpp` loads `data/events.csv` and runs three passes: total time, per-event latency, and the checksum pass. Built with `g++ -O2 -std=c++17`. The final state line is compared byte for byte with the Python book's (`data/expected.txt`).
+
+### Expectation
+I had no written prediction.
+
+### Results
+- Output identical to Python: `4998 9972 9976 315871 4f1dbc0a1f073d61` (resting orders, best bid, best ask, fills, checksum over every fill and cancel result), on the first run.
+- 0.086 s for 1,000,000 events: 11,655,726 events per second, a 47x speedup over 249k.
+- Latency in microseconds (median, p99, p99.9, max): limit order 0.08, 0.24, 0.43, 249.9. Market order 0.09, 0.33, 0.58, 79.7. Cancel 0.14, 0.33, 0.55, 498.1.
+- Median speedups against Python: limit 53x, market 52x, cancel 15x. p99.9 improved about 100 to 216 times.
+
+### Interpretation
+- The port matches the tested Python book on a million events, including fills and cancel results, so the behaviour is the same on this event mix.
+- Cancel is now the slowest operation, the opposite of Python. This is consistent with the hypothesis that Python's cost was dominated by the sort of all price levels in `_match`, and in C++ the std::map removes that. Not profiled. The remaining cancel cost is probably the linear scan of the level's queue.
+- The tail shrank more than the median (p99.9 is 5 to 6 times the median in C++, 20 to 40 times in Python).
+
+### Surprises
+The checksum matched on the first run.
+
+### Limitations
+- A single 86 ms run, no repeats, no spread across runs.
+- The per-event clock call is a large share of 0.08 microseconds, so the latency medians overstate the true cost more than they did for Python.
+- Synthetic event mix with about 50 orders per level. A real book would behave differently.
+- `-O2` with no tuning. No profile of either version.
+- Python and C++ were timed with different clocks.
+
+### Open questions
+1. How much of the Python time was the sort in `_match`? (Test: replace it with a maintained ordering and rerun.)
+2. How does cancel cost grow with queue length?
+3. How much does the clock call distort the C++ medians? (Compare with the untimed throughput.)
+
+### Next
+Profile and tighten the C++ version (cancel by direct handle, fewer allocations), then bind it to Python with pybind11 and replay a session from the recorded data through both books.
