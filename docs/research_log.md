@@ -1219,3 +1219,42 @@ The checksum matched on the first run.
 
 ### Next
 Profile and tighten the C++ version (cancel by direct handle, fewer allocations), then bind it to Python with pybind11 and replay a session from the recorded data through both books.
+
+## Entry 29: Tightening the C++ order book (17-11-2026)
+
+### Goal
+Find out how much a more careful C++ book gains over the direct port, and measure the cost of the latency timer itself.
+
+### Method
+`cpp/fastbook.hpp`: resting orders live in a preallocated pool, linked as a doubly linked list per price level (cancel unlinks in O(1)), fills go into a reused output buffer, and the id lookup is a flat vector indexed by order id. Price levels are still a std::map. `cpp/bench2.cpp` runs both books through identical code on `data/events.csv`: five timed passes (best and spread), a per-event latency pass, a checksum pass, and a direct measurement of the clock overhead (2,000,000 back-to-back timer reads). Built with `g++ -O2 -std=c++17 -Wall -Wextra`, no warnings.
+
+### Expectation
+I had no written prediction. For reference: a speedup of 2 to 3 times, with cancel improving most.
+
+### Results
+- Both books print the state line `4998 9972 9976 315871 4f1dbc0a1f073d61`, identical to the Python book.
+- Clock overhead: 14.5 ns per timed measurement.
+- Original port, five runs: 0.0841, 0.0857, 0.0834, 0.0896, 0.0936 s. Best 0.0834 s (12.0M events per second).
+- Fast book, five runs: 0.0337, 0.0448, 0.0343, 0.0330, 0.0320 s. Best 0.0320 s (31.2M events per second). Speedup 2.6x on the best run, 2.5x on the median. About 125x faster than Python.
+- Median latency in microseconds, original then fast: limit 0.078 then 0.054, market 0.088 then 0.045, cancel 0.127 then 0.032. p99.9: limit 0.483 then 0.270, market 0.644 then 0.269, cancel 0.666 then 0.234.
+
+### Interpretation
+- Cancel improved most (4.0x), consistent with replacing a scan of a deque of about 50 entries with an O(1) unlink. Limit orders improved least (1.4x). Hypothesis (not profiled): they are still dominated by the std::map price-level lookup.
+- The clock overhead is 19% of the original limit median and 45% of the fast cancel median, so the per-event medians understate the real speedups, especially for the fast book.
+- The original varied by 12% across runs and the fast book by 40% (one slow run, four within 7% of the best).
+
+### Surprises
+The fast cancel median (0.032 microseconds) is close to the clock overhead (0.0145), so most of what it measures is the timer.
+
+### Limitations
+- The flat id vector assumes small dense order ids. A real exchange needs a hash table.
+- Synthetic event log with about 5,000 resting orders, so the working set is probably cache resident (not checked).
+- One machine under WSL, no profile, and the three changes are not yet separated, so I cannot say which carries the speedup.
+- Maximum latencies (98 to 220 microseconds) are OS noise.
+
+### Open questions
+1. Which of the three changes carries the speedup? (Ablation: remove the flat index and the reused buffer one at a time.)
+2. How much does the std::map price-level lookup cost?
+
+### Next
+An ablation with five variants, then the pybind11 binding and a replay of a recorded session through the Python and C++ books.
