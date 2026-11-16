@@ -938,3 +938,45 @@ At c = 1 the loss per fill was still $2.2 to $3.3.
 
 ### Next
 Test the volatility-scaled model on the new sessions, which are the first data it has not been tuned on, then post passive orders only when the signal says so.
+
+## Entry 22: First out-of-sample test of the volatility-scaled model (16-11-2026)
+
+### Goal
+Test the volatility scaling from Entry 10, which was designed after seeing the walk-forward blocks fail, on data it was not tuned on.
+
+### Method
+`scripts/fresh_eval.py`. The bars were rebuilt with the new sessions: 79,442 bars, 7 sessions, 77,965 with a volatility estimate. Training: the 5 older sessions (67,683 bars, mean price 84,569, y std 3.93). Test: the 2 sessions recorded on 15-11-2026 (10,274 bars, mean price 64,645, y std 5.38). Linear model on `ofi_sum` and `imb_last`, standardised with training statistics, in two versions: plain, and trained on `y / vol` and multiplied back by the test row's `vol`. The test sessions are entirely later than the training sessions.
+
+### Expectation
+I expected the volatility-scaled R^2 to land inside the walk-forward range (0.06 to 0.10) with a calibration slope near 1.
+
+### Results
+| | Plain | Vol-scaled |
+|---|---|---|
+| R^2, both test sessions | 0.0614 | 0.0536 |
+| Calibration slope | 1.183 | 0.716 |
+| Session 1794757274... (5,340 bars, y std 6.10): R^2, slope | 0.0624, 1.393 | 0.0533, 0.716 |
+| Session 1794762753... (4,934 bars, y std 4.48): R^2, slope | 0.0592, 0.985 | 0.0540, 0.742 |
+
+Plain Spearman on all test bars 0.406 (session values 0.429 and 0.378).
+
+### Interpretation
+- The plain model transfers to a price level 24% lower and a more volatile market (y std 5.38 against 3.93). That supports building features from changes and ratios.
+- The volatility-scaled model did not beat the plain one on fresh data, and its R^2 is below its walk-forward range. The gap to the plain model (0.008) is within the noise from cut placement seen in Entry 10.
+- The Entry 10 hypothesis held on fresh data: the plain slope follows the ratio of test to training volatility (ratios 1.37, 1.55, 1.14; slopes 1.18, 1.39, 0.985), about 0.15 to 0.19 below the ratio each time (unexplained).
+- The scaled model's slope is stable across the two sessions (0.716, 0.742) while the plain slope moves from 1.39 to 0.985, so the scaling stabilises the scale, but it is about 25 to 28% too large. The 0.80 in walk-forward block 3 looks like the same effect. Hypothesis (untested): trailing 300 second volatility is a noisy estimate of next-second volatility.
+
+### Surprises
+The plain model scored higher than the scaled one on both fresh sessions, and the scaled slope was 0.72, not near 1.
+
+### Limitations
+- Two sessions, 10,274 bars (about 2.9 hours), one afternoon, one sell-heavy market. The effective sample is small and there are no intervals.
+- The scaling was designed after seeing the walk-forward blocks, and this is its first and only test on new data. These two sessions must not be used to retune it.
+- Dropped bars at the start of each segment (no volatility estimate) differ slightly between the two models' training sets.
+
+### Open questions
+1. Is the 0.72 slope a property of trailing volatility as a scale estimate? (Compare against a longer or shorter window, judged on newer sessions.)
+2. Does the plain model's R^2 hold on sessions recorded later still?
+
+### Next
+Market making: the Avellaneda-Stoikov quotes, first replicated in a simulation, then run on the synthetic book.
