@@ -1297,3 +1297,46 @@ The reused fills buffer, the change I expected to matter, gave only about 6%. Th
 
 ### Next
 Return to the modelling side: gradient boosting on the bars, with a test on the fresh sessions and the leakage comparison left open in Entry 14. The replay of a recorded session through the order books is dropped, because the recorded depth data is level-aggregated.
+
+## Entry 31: Gradient boosting on the bars (17-11-2026)
+
+### Goal
+Check whether a flexible model beats the linear one on the fresh sessions, and whether the random-versus-purged split gap from Entry 14 is larger for it.
+
+### Method
+`scripts/boosting.py`. scikit-learn HistGradientBoostingRegressor (learning rate 0.03, 15 leaves per tree, at least 200 rows per leaf, L2 penalty 10, no built-in early stopping because it uses a random validation split, which leaks through autocorrelated neighbouring seconds). The number of trees is chosen on the last 15% of the older sessions (30 second embargo) by validation R^2, then the model is scored on the fresh sessions of Entry 22 (10,274 bars). Features: `ofi_sum`, `imb_last`, and for the 5-feature set also `spread_last`, `log_n` (log of 1 plus the number of updates in the second) and `vol` (trailing 300 second volatility). Second part: 10-second label on the older sessions (65,990 bars), random 70/30 against purged time split (horizon 10 s, embargo 30 s), linear against boosted (300 trees, not tuned).
+
+### Expectation
+I expected boosting to roughly match the linear model on the fresh sessions, and the boosted model to show a larger gap between the random and purged splits than the linear one.
+
+### Results
+Fresh sessions (R^2, Spearman, trees, validation R^2):
+- Linear, 2 features: +0.0614, 0.406 (reproduces Entry 22).
+- Linear, 5 features: +0.0620, 0.406.
+- Boosted, 2 features: +0.0636, 0.417, 27 trees, validation +0.0702.
+- Boosted, 5 features: +0.0762, 0.420, 90 trees, validation +0.0681.
+
+10-second label, older sessions (R^2, random / naive time / purged time):
+- Linear, 5 features: +0.0575 / +0.0652 / +0.0652.
+- Boosted, 300 trees: +0.0779 / +0.0436 / +0.0428.
+
+### Interpretation
+- With 2 features boosting ties the linear model. With 5 features it is 0.015 higher, which is within the cut-placement noise of about 0.01 to 0.02 (Entry 10) on two sessions with no interval. The validation ranking flipped between the 2-feature and 5-feature boosted models.
+- Hypothesis (untested): the gain comes from `vol` interacting with imbalance, which trees can express and a linear model cannot. The linear 5-feature model gained nothing.
+- The chosen tree counts are small (27 and 90 of 600), so validation R^2 peaks early and then the model overfits.
+- The boosted model's random split overstates its score by 0.035, about 80% of its purged score, a leak far smaller than the 0.845 in Entry 13. For the linear model the random split is lower than the purged one by 0.008, as in Entry 14 (unexplained).
+- The 300 trees are fixed, not tuned, so the boosted model's worse purged score (0.043 against 0.065) is partly overfitting, and the model comparison on the 10-second label is not fair.
+- Hypothesis (untested): `vol` is a slowly changing trailing window, so adjacent seconds have nearly the same value, and trees can use it to recognise a time period.
+
+### Surprises
+Boosting on two features added essentially nothing. The random split flattered the boosted model and hurt the linear one.
+
+### Limitations
+Two fresh sessions (10,274 bars) with no intervals. Tree counts chosen on one held-out block. Fixed untuned trees on the 10-second label. One horizon, one asset. No costs: a prediction, not a trading result.
+
+### Open questions
+1. Does removing `vol` remove the gain on the fresh sessions and the random-split gap?
+2. Does the gap shrink with fewer trees?
+
+### Next
+`scripts/boosting2.py`: a no-vol feature set, tree counts of 30, 90 and 300 on the 10-second label, and per-session fresh results.
