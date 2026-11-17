@@ -1320,6 +1320,7 @@ Fresh sessions (R^2, Spearman, trees, validation R^2):
 - Linear, 5 features: +0.0575 / +0.0652 / +0.0652.
 - Boosted, 300 trees: +0.0779 / +0.0436 / +0.0428.
 
+
 ### Interpretation
 - With 2 features boosting ties the linear model. With 5 features it is 0.015 higher, which is within the cut-placement noise of about 0.01 to 0.02 (Entry 10) on two sessions with no interval. The validation ranking flipped between the 2-feature and 5-feature boosted models.
 - Hypothesis (untested): the gain comes from `vol` interacting with imbalance, which trees can express and a linear model cannot. The linear 5-feature model gained nothing.
@@ -1340,3 +1341,24 @@ Two fresh sessions (10,274 bars) with no intervals. Tree counts chosen on one he
 
 ### Next
 `scripts/boosting2.py`: a no-vol feature set, tree counts of 30, 90 and 300 on the 10-second label, and per-session fresh results.
+
+### Second script: scripts/boosting2.py
+Fresh sessions, R^2 / Spearman for all fresh bars, session A, session B:
+- Linear, 2 features: +0.0614 / 0.406, +0.0624 / 0.429, +0.0592 / 0.378.
+- Boosted, 2 features (27 trees, validation +0.0702): +0.0636 / 0.417, +0.0645 / 0.440, +0.0620 / 0.387.
+- Boosted, no vol (32 trees, validation +0.0699): +0.0684 / 0.417, +0.0707 / 0.438, +0.0638 / 0.388.
+- Boosted, 5 features (90 trees, validation +0.0681): +0.0762 / 0.420, +0.0827 / 0.443, +0.0632 / 0.388.
+
+10-second label, older sessions (65,990 bars), R^2 random / purged / gap:
+- Linear, 5 features: +0.0575 / +0.0652 / -0.0077.
+- Boosted 30 trees: 5 features +0.0542 / +0.0565 / -0.0022, no vol +0.0524 / +0.0573 / -0.0049.
+- Boosted 90 trees: 5 features +0.0677 / +0.0607 / +0.0070, no vol +0.0600 / +0.0626 / -0.0026.
+- Boosted 300 trees: 5 features +0.0779 / +0.0428 / +0.0351, no vol +0.0575 / +0.0551 / +0.0024.
+
+Interpretation added:
+- The gain of the 5-feature model over the no-vol model on the fresh sessions is +0.0120 in session A and -0.0006 in session B, so it is not consistent across sessions, and the validation score ranked it lower. The hypothesis that `vol` interacts with imbalance is not supported.
+- The random-versus-purged gap grows with the number of trees only when `vol` is a feature (-0.002, +0.007, +0.035), and removing `vol` cuts the gap at 300 trees from +0.0351 to +0.0024. Consistent with the hypothesis that `vol`, a slowly changing trailing window, lets a deep model recognise a time period (not otherwise tested).
+- Gaps of about 0.005 are within the noise of a single split and seed. The no-vol model at 300 trees (purged 0.0551) is still below the linear model (0.0652).
+- The two fresh sessions have now been used to compare feature sets and are no longer untouched.
+
+Open questions 1 and 2 answered: removing `vol` removes the gap, and fewer trees shrink it.
