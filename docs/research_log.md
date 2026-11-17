@@ -1399,3 +1399,20 @@ The fresh bar count (10,361) is higher than in the earlier scripts (10,274), bec
 
 ### Next
 A pre-registered out-of-sample test on data recorded after today.
+
+## Entry 33: Pre-registered out-of-sample test (18-11-2026)
+
+### Rule
+Every session with `session_id` greater than 1794762753096358322 (the largest session id in the data on 18-11-2026) is held out. Nothing below may change after I look at its results.
+
+### Specification
+- Train on all sessions up to and including 1794762753096358322.
+- Models: linear regression on `ofi_sum` and `imb_last`, and gradient boosting on `ofi_sum`, `imb_last`, `spread_last`, `log_n` (no `vol`) with the hyperparameters of `scripts/boosting2.py`, tree count chosen by the same validation rule (last 15% of the training period, 30 second embargo).
+- Target: next-second mid change. Metrics: R^2 against the training mean and Spearman, overall and per session, with 95% block-bootstrap intervals (blocks of 60 bars).
+- Stopping rule: evaluate once, when the held-out data holds at least 20 hours in at least 3 sessions.
+- The neural network and `vol` are excluded.
+
+### Predictions
+- Linear R^2 between 0.03 and 0.09, Spearman between 0.30 and 0.45.
+- Boosted R^2 not more than 0.01 above linear.
+- If any prediction fails, I report the failure and do not retune on that data.
