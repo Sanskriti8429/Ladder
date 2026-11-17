@@ -26,7 +26,7 @@
 - [x] Synthetic market with planted impact
 - [x] Backtester: fees, latency sweep, queue assumptions
 - [x] Avellaneda-Stoikov market maker
-- [ ] C++ port of the book with benchmarks
+- [x] C++ port of the book with benchmarks
 - [ ] Gradient boosting, then a small neural net
 - [ ] Replay dashboard
 

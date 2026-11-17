@@ -1258,3 +1258,42 @@ The fast cancel median (0.032 microseconds) is close to the clock overhead (0.01
 
 ### Next
 An ablation with five variants, then the pybind11 binding and a replay of a recorded session through the Python and C++ books.
+
+## Entry 30: Ablation of the C++ order book changes (17-11-2026)
+
+### Goal
+Find out which of the three changes in the fast book (linked-list pool, flat id index, reused fills buffer) carries the speedup.
+
+### Method
+`cpp/fastbook2.hpp` (PooledBook, a template over the id index) and `cpp/bench3.cpp`. Five variants through identical code on `data/events.csv`, seven timed passes each, plus a per-event latency pass and the checksum pass. A: original port. B: pooled linked list, hash ids, a fresh fills vector per call. C: pool, flat ids, fresh fills. D: pool, hash ids, reused fills buffer. E: pool, flat ids, reused fills buffer. `g++ -O2 -std=c++17 -Wall -Wextra`, no warnings.
+
+### Expectation
+I had no written prediction. For reference: the pool alone about 1.5x, and the flat index helping more than the reused buffer.
+
+### Results
+- All five variants print the state line `4998 9972 9976 315871 4f1dbc0a1f073d61`, identical to the Python book.
+- Best of 7, median of 7, slowest, in seconds: A 0.0863, 0.0908, 0.1102. B 0.0584, 0.0619, 0.0700. C 0.0372, 0.0385, 0.0405. D 0.0549, 0.0589, 0.0696. E 0.0349, 0.0366, 0.0437.
+- Speedup over A on the best run: B 1.48x, C 2.32x, D 1.57x, E 2.47x. Effects: pool 1.48x (28 ns per event), flat ids 1.57x on B and on D (21 and 20 ns), reused fills 1.06x on B and 1.07x on C (3.5 and 2.3 ns). 1.48 x 1.57 x 1.07 = 2.47.
+- Median latency in microseconds (limit, market, cancel; each includes about 0.0145 of clock): A 0.081, 0.090, 0.133. B 0.077, 0.078, 0.059. C 0.056, 0.057, 0.033. D 0.076, 0.067, 0.061. E 0.055, 0.047, 0.033.
+
+### Interpretation
+- The flat id index is the largest single gain, and it helps limit, market and cancel by 21 to 26 ns each. Hypothesis (not profiled): the cost removed is the allocation and freeing of a hash node per resting order.
+- The pool mostly helps cancels (0.133 to 0.059 microseconds), consistent with replacing a scan of about 50 deque entries by an O(1) unlink. It barely changes limit orders.
+- The reused buffer helps only operations that produce fills (market orders 0.078 to 0.067) and by little overall.
+- About 35 ns per event remain in variant E: the std::map level lookups and the event loop, not separated.
+
+### Surprises
+The reused fills buffer, the change I expected to matter, gave only about 6%. The flat index gave 57%.
+
+### Limitations
+- Run-to-run spread of 5% to 20% (B ranged from 0.0584 to 0.0700 s). The reuse effect is about the size of the spread, though it is consistent in best, median and market latency.
+- A and E differ by about 4% and 9% from the previous benchmark (Entry 29), unexplained.
+- The flat index assumes small dense order ids, which a real exchange does not have.
+- Synthetic event log with about 5,000 resting orders, probably cache resident. No profiler used.
+
+### Open questions
+1. How much of the remaining 35 ns per event is the std::map? (Replace it with a flat array of price levels, which this price range allows.)
+2. How big is the pybind11 call overhead compared with 35 ns?
+
+### Next
+Return to the modelling side: gradient boosting on the bars, with a test on the fresh sessions and the leakage comparison left open in Entry 14. The replay of a recorded session through the order books is dropped, because the recorded depth data is level-aggregated.
