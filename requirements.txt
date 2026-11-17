@@ -6,3 +6,4 @@ scikit-learn
 websockets
 statsmodels
 hypothesis
+scipy
