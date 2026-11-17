@@ -2,6 +2,8 @@
 
 **Short-horizon order flow signals on limit order book data, tested with realistic execution.**
 
+![tests](https://github.com/Sanskriti8429/Ladder/actions/workflows/tests.yml/badge.svg)
+
 `ladder` is a from-scratch research project on market microstructure. It reconstructs a limit order book from raw exchange data, builds order flow and book imbalance signals, and tests how much of the edge survives fees, latency and queue position.
 
 > **Status:** early development. Checked boxes in the roadmap are the only things that exist.

@@ -1416,3 +1416,33 @@ Every session with `session_id` greater than 1794762753096358322 (the largest se
 - Linear R^2 between 0.03 and 0.09, Spearman between 0.30 and 0.45.
 - Boosted R^2 not more than 0.01 above linear.
 - If any prediction fails, I report the failure and do not retune on that data.
+
+## Entry 34: Replay dashboard (18-11-2026)
+
+### Goal
+A page that replays the market maker running through the order book, for showing and for checking by eye.
+
+### Method
+`scripts/make_dashboard.py` runs the Avellaneda-Stoikov inventory quotes (g = 1, sigma 0.633, k 1.92, one unit per side, reposted every step) through the fixed synthetic book of Entry 26 for 400 steps, records every step (top levels per side, our two quotes, fills, inventory, profit) and writes `docs/replay.html`, one self-contained page with the data embedded (no server, no dependencies, light and dark theme). It has a play button, a slider, a speed control, the order book with our quotes outlined, price with quotes and fill dots, inventory, and profit. It replays the synthetic world, not recorded data, because the recorded depth is level-aggregated and cannot drive an order-by-order book.
+
+### Expectation
+Entry 26 scaled to 400 steps predicts about 94 fills (351 per 1,500 steps) and about 37 ticks of profit, with inventory within a few units.
+
+### Results
+Last frame of the seed 5 run: mid 10001.5, inventory -1, profit 33.5 ticks, 75 fills. The inventory axis spans -2 to 2, so the maximum absolute inventory was 2. The mid stayed within a band of about 10 ticks (axis 9997 to 10007, including the quote lines).
+
+### Interpretation
+- Fills (75) are about 20% below the scaled expectation and profit (33.5) is about 10% below, which one seed cannot distinguish from noise.
+- A random walk with sigma 0.633 would typically span about 20 ticks in 400 steps. This path spans about 10. Hypothesis (untested): the simulated mid mean-reverts, which violates the Brownian assumption of the model and could contribute to the strong risk reduction seen in Entry 26.
+
+### Limitations
+- One seed and one screenshot.
+- The card says top 8 levels but the book has 6 to 7 per side.
+- Each frame draws the quotes posted at the start of a step against the book and mid at the end of it.
+- Synthetic world only.
+
+### Open questions
+1. Is the mid of the simulator mean-reverting? (Variance ratio of its increments at several horizons.)
+
+### Next
+Variance ratio test of the simulated mid.
