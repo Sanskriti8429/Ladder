@@ -1362,3 +1362,40 @@ Interpretation added:
 - The two fresh sessions have now been used to compare feature sets and are no longer untouched.
 
 Open questions 1 and 2 answered: removing `vol` removes the gap, and fewer trees shrink it.
+
+## Entry 32: Small neural network on 10 seconds of history (17-11-2026)
+
+### Goal
+Find out whether recent history helps predict the next second's mid change, using a small neural network and controls.
+
+### Method
+`scripts/mlp.py`. Inputs: `ofi_sum`, `imb_last`, `log_n` for the last 10 seconds (30 numbers, standardised with training statistics). Only rows with 9 seconds of consecutive history. No `vol` (Entry 31). Train: the first 85% of the older sessions (57,280 bars), validation: the rest after a 30 second embargo (10,082 bars), fresh test: the two sessions of Entry 22 (10,361 bars). scikit-learn MLPRegressor with hidden layers 32 and 16, L2 penalty 0.01, minibatches of 256, trained for up to 60 epochs on the target clipped at its 0.5th and 99.5th percentiles (scored on the raw target), epoch chosen on validation. Controls: linear on the latest second, linear on all 10 seconds, boosted trees on the latest second (tree count chosen on the same validation block).
+
+### Expectation
+I expected history to add little beyond the latest second, because imbalance is very persistent (lag-1 autocorrelation 0.83, Entry 13), and the network to need early stopping.
+
+### Results
+Fresh sessions (R^2 / Spearman: all, session A, session B):
+- Linear, latest second: +0.0619 / 0.406, +0.0637 / 0.428, +0.0584 / 0.377.
+- Linear, 10 seconds: +0.0593 / 0.386, +0.0665 / 0.402, +0.0449 / 0.359.
+- Boosted, latest second (32 trees, validation +0.0697): +0.0685 / 0.414, +0.0704 / 0.436, +0.0646 / 0.383.
+- MLP, 10 seconds (epoch 9, validation +0.0536): +0.0590 / 0.379, +0.0612 / 0.392, +0.0545 / 0.353.
+MLP validation R^2 at epochs 10, 20, 30, 40, 50, 60: +0.0532, +0.0509, +0.0467, +0.0437, +0.0402, +0.0363.
+
+### Interpretation
+- History does not help here: linear on 10 seconds is 0.0026 below linear on the latest second overall (+0.003 in session A, -0.014 in session B), and the MLP is the weakest model on Spearman and 0.0095 below boosted on R^2.
+- The MLP overfits within about 9 epochs.
+- Hypothesis (not tested): lagged imbalance is nearly a copy of the latest value and lagged OFI carries little, so extra inputs add things to memorise and no signal.
+
+### Surprises
+The fresh bar count (10,361) is higher than in the earlier scripts (10,274), because this script does not drop the first minute of each segment that had no `vol` estimate, and that outweighs the 9 rows per segment lost to the history requirement.
+
+### Limitations
+- scikit-learn MLP on bar features, not DeepLOB. No book levels (the depth recording is 26 minutes).
+- One seed, epoch chosen on one block, two fresh sessions that have been reused for several comparisons, no intervals.
+
+### Open questions
+1. Do deeper book levels (a few hours of depth data) add anything the best level does not?
+
+### Next
+A pre-registered out-of-sample test on data recorded after today.
