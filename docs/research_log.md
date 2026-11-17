@@ -1446,3 +1446,36 @@ Last frame of the seed 5 run: mid 10001.5, inventory -1, profit 33.5 ticks, 75 f
 
 ### Next
 Variance ratio test of the simulated mid.
+
+## Entry 35: The simulated mid is mean-reverting (18-11-2026)
+
+### Goal
+Test the hypothesis from Entry 34 that the mid price of the synthetic book mean-reverts, which would violate the Brownian assumption of the Avellaneda-Stoikov model.
+
+### Method
+`scripts/mid_variance_ratio.py`: 20 paths of 4,000 steps of the synthetic book (no market maker), overlapping h-step changes of the mid for h in {1, 5, 20, 100, 400}, pooled across paths. The variance ratio is the variance of h-step changes divided by h times the one-step variance (1 for a random walk).
+
+### Expectation
+I expected the ratio at h = 400 to be below 1 but above 0.5.
+
+### Results
+- One-step variance 0.3973 (std 0.6303, against 0.633 calibrated in Entry 26).
+- Variance of h-step changes and variance ratio: h = 1: 0.397 and 1.000. h = 5: 1.174 and 0.591. h = 20: 2.694 and 0.339. h = 100: 9.216 and 0.232. h = 400: 30.992 and 0.195.
+
+### Interpretation
+- The simulated mid mean-reverts strongly. At h = 400 the variance is 31.0, against 159 for a random walk with the same one-step variance. The ratio flattens at long horizons (0.232 at 100, 0.195 at 400), consistent with a stationary level variance of about half the long-horizon change variance (not fitted).
+- Hypothesis (untested): passive orders are placed relative to the current touch, and the book depth is held by the target of 60 resting orders, so old levels pull the touch back after a move.
+- Consequences for earlier entries: the Avellaneda-Stoikov model assumes a Brownian mid, so holding inventory is less risky in this world than the model assumes. This may contribute to the strong risk reduction in Entry 26 (not tested), and a mean-reverting mid may explain the negative next-step OFI slope in Entry 16 (not tested).
+
+### Surprises
+The ratio is 0.195 at h = 400, well below my range of 0.5 to 1.
+
+### Limitations
+Overlapping increments, no standard errors, no market maker in the simulation, one set of simulator parameters. The real data's variance ratio has not been measured.
+
+### Open questions
+1. What is the variance ratio of the real mid at the same horizons? (The proper benchmark for how unrealistic the simulator is.)
+2. Does Entry 26's inventory-control result survive when the mid is a random walk?
+
+### Next
+Measure the real variance ratio, then give the simulator a Brownian mid.

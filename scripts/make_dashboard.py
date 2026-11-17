@@ -302,4 +302,5 @@ def main():
           " final PnL:", round(frames[-1]["pnl"], 1), " file bytes:", len(page))
 
 
-main()
+if __name__ == "__main__":
+    main()
