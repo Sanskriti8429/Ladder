@@ -1479,3 +1479,39 @@ Overlapping increments, no standard errors, no market maker in the simulation, o
 
 ### Next
 Measure the real variance ratio, then give the simulator a Brownian mid.
+
+## Entry 36: Variance ratio of the real mid (18-11-2026)
+
+### Goal
+Measure how the real mid compares with the Brownian assumption of the Avellaneda-Stoikov model and with the simulator (Entry 35).
+
+### Method
+`scripts/real_variance_ratio.py`: one-second mids (last quote in each second, carried forward through quiet seconds) from the recorded `bookTicker` data, within (session_id, segment_id) so no change crosses a gap, 26 segments. Overlapping h-second changes for h in {1, 5, 20, 100, 400}, pooled. Variance ratio = variance of h-second changes / (h x one-second variance).
+
+### Expectation
+I expected a ratio above 1, because the lag-1 autocorrelation of one-second price changes is positive (+0.118, Entry 13).
+
+### Results
+- 26 segments, one-second variance 16.996 (std 4.123 dollars), 82,342 increments.
+- Variance ratio: h = 5: 1.301. h = 20: 1.552. h = 100: 1.666. h = 400: 1.456.
+- Simulator (Entry 35): 0.591, 0.339, 0.232, 0.195.
+
+### Interpretation
+- The real mid trends mildly at horizons up to about 100 seconds and then the ratio falls back toward 1. The simulated mid mean-reverts strongly. They differ in direction at every horizon.
+- Roughly consistent with the lag-1 autocorrelation: 1 + 2 x 0.118 x (4/5) = 1.19 at h = 5, against 1.30 measured (a rough approximation that ignores later lags).
+- The positive serial dependence fits the sign of the next-step OFI slope: positive in real data (Entries 8 and 16), negative in the simulator. Not tested causally.
+- Entry 26's inventory-control result is probably more favourable than it would be in a real market: the mean reversion of the simulated mid forgives inventory, and a trending mid punishes it. Not quantified.
+- Part of the positive dependence could be clumped arrival of updates (Entry 2), which moves some of one second's change into the next. Not separated.
+
+### Surprises
+The real ratio is above 1 at every horizon and peaks at about 1.67, where I had no expectation of the size.
+
+### Limitations
+Overlapping increments, no standard errors, segments of different length pooled, arrival-time seconds, one asset and one week of recording across several price levels.
+
+### Open questions
+1. Does the ratio change when seconds are defined by exchange time (depth data) instead of arrival time?
+2. How much does Entry 26's inventory result weaken with a Brownian or trending mid?
+
+### Next
+Give the simulator a Brownian mid and rerun the inventory comparison.
