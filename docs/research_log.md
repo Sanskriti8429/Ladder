@@ -1515,3 +1515,44 @@ Overlapping increments, no standard errors, segments of different length pooled,
 
 ### Next
 Give the simulator a Brownian mid and rerun the inventory comparison.
+
+## Entry 37: Trying to build a Brownian world for the market maker (18-11-2026)
+
+### Goal
+Give the synthetic book a mid price whose variance ratio is near 1 (a random walk, as the Avellaneda-Stoikov model assumes) and near the real values (Entry 36), to see how much of Entry 26's inventory-control result depended on mean reversion.
+
+### Method
+`scripts/world_check.py`: the synthetic book of Entry 26, but passive orders are placed relative to a latent fundamental price F instead of the current touch (buys 0 to 4 ticks below floor(F), sells 1 to 5 ticks above it). F moves each step by an AR(1) increment with parameter phi and standard deviation sigma_F, so phi = 0 is a random walk and phi = 0.25 should give a long-run variance ratio of (1 + phi)/(1 - phi) = 1.67 (my approximation). 8 paths of 6,000 steps per setting, no market maker. Variance ratios of the mid and of F at h in {1, 5, 20, 100, 400}.
+
+### Expectation
+I expected the mid's variance ratio at h = 400 to be well below 1 at sigma_F = 0.5, and I expected a ratio above 1 at short horizons from the lag of the book behind F.
+
+### Results
+Mid step std, mean spread in ticks, resting orders at the end, then mid ratios at h = 5, 20, 100, 400:
+- sigma_F 0 (control): 0.558, 2.18, 58; 0.321, 0.088, 0.018, 0.005.
+- sigma_F 0.5, phi 0: 0.655, 2.06, 59; 0.537, 0.492, 0.547, 0.565.
+- sigma_F 1.0, phi 0: 0.890, 2.16, 58; 0.780, 1.009, 1.206, 1.230.
+- sigma_F 2.0, phi 0: 1.735, 2.85, 40; 0.903, 1.114, 1.296, 1.431.
+- sigma_F 4.0, phi 0: 3.651, 4.10, 21; 0.946, 1.047, 1.068, 1.049.
+- sigma_F 2.0, phi 0.25: 2.179, 3.18, 36; 1.014, 1.253, 1.342, 1.338.
+The fundamental's own ratios: 0.98 to 1.09 for phi = 0 (0.887 at h = 400 for sigma_F 4), and 1.49, 1.64, 1.62, 1.59 for phi = 0.25.
+
+### Interpretation
+- The control confirms that anchoring passive orders to a fixed price makes the mid mean-revert strongly (ratio 0.005 at h = 400).
+- Only sigma_F = 4 comes within about 0.1 of a random walk, and it costs a different book: the mid step std is 3.65 (the calibrated world is 0.63), the spread 4.1 ticks and 21 resting orders. Hypothesis (untested): large jumps strand stale orders far from the new touch and the target of 60 refills slowly.
+- The predicted short-horizon lag effect did not appear at h = 5 (ratios 0.78 to 0.95 for phi = 0). Long-horizon ratios of 1.2 to 1.4 appear at sigma_F 1 to 2 and are unexplained.
+- The real-like setting (sigma_F 2, phi 0.25) reaches 1.01, 1.25, 1.34, 1.34 against the real 1.30, 1.55, 1.67, 1.46, 0.2 to 0.3 short.
+- This simulator does not seem able to deliver a small step std and a random-walk mid at the same time. I stopped here.
+
+### Surprises
+Ratios above 1 at long horizons for moderate sigma_F with phi = 0, and a book that thins and widens as sigma_F grows.
+
+### Limitations
+8 paths per setting, overlapping increments, no standard errors, no market maker, the acceptance bar of 0.1 was set by me. No Avellaneda-Stoikov parameters recalibrated for the new worlds.
+
+### Open questions
+1. Is a Brownian-mid world possible with the calibrated microstructure (step std about 0.63, spread about 1.3 ticks)? Probably needs a different placement rule.
+2. How much of Entry 26's result depends on the mean reversion? Not answered.
+
+### Next
+Stop tuning the simulator. State the limitation in the write-up.
