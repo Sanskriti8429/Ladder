@@ -1556,3 +1556,42 @@ Ratios above 1 at long horizons for moderate sigma_F with phi = 0, and a book th
 
 ### Next
 Stop tuning the simulator. State the limitation in the write-up.
+
+## Entry 38: Result of the pre-registered out-of-sample test (22-11-2026)
+
+### Goal
+Run the evaluation fixed in Entry 33, once, on data recorded after the cutoff (session 1794762753096358322).
+
+### Method
+`scripts/preregistered_eval.py`, unchanged since it was written. Training: all 77,957 bars up to and including the cutoff. Held-out: 114,560 bars (about 31.8 hours) in 3 sessions: 94,686 bars (26.3 h), 9,915 and 9,959 bars (2.8 h each). Models: linear regression on `ofi_sum` and `imb_last`; gradient boosting on `ofi_sum`, `imb_last`, `spread_last`, `log_n` (no `vol`), 87 trees chosen on the last 15% of the training period (validation R^2 +0.0764) and refit on all training data. R^2 against the training mean. 95% intervals from a block bootstrap (blocks of 60 bars, 1,000 resamples). The script refused to run while the stopping rule was unmet (it stopped at 0 held-out bars, then at 1 session), and it was run once when the rule was met.
+
+### Expectation
+Linear R^2 between 0.03 and 0.09 and Spearman between 0.30 and 0.45. Boosted R^2 not more than 0.01 above linear.
+
+### Results
+- Linear, all held-out: R^2 +0.0450 [+0.0402, +0.0502], Spearman 0.341 [0.334, 0.348]. By session: R^2 +0.0438, +0.0494, +0.0556; Spearman 0.339, 0.341, 0.363.
+- Boosted, all held-out: R^2 +0.0578 [+0.0502, +0.0654], Spearman 0.357 [0.349, 0.363]. By session: R^2 +0.0562, +0.0644, +0.0710; Spearman 0.356, 0.355, 0.371.
+- Boosted minus linear R^2: +0.0128 overall, +0.0124, +0.0150, +0.0154 by session.
+- Predictions: linear R^2 in [0.03, 0.09] PASS (0.0450). Linear Spearman in [0.30, 0.45] PASS (0.341). Boosted R^2 minus linear R^2 <= 0.01 FAIL (+0.0128).
+
+### Interpretation
+- The linear baseline held up on new data in every session. Its R^2 (4.5%) is below the 6.1% on the sessions of Entry 22 and close to the 5.1% walk-forward mean of Entry 10, so earlier single estimates were on the high side.
+- The third prediction failed by 0.0028. I report it as a failure and did not retune on this data.
+- Boosting beat linear by 0.012 to 0.015 in each of the three sessions, so the direction is consistent. The two overall intervals touch at 0.0502 and I did not compute an interval for the difference. Session 1 holds 83% of the bars.
+- Hypothesis (not tested here): the gain comes from the trees and not from the two extra inputs, because the linear model gained nothing from extra features in Entry 31.
+
+### Surprises
+The boosted gain was larger than I predicted and the same in every session.
+
+### Limitations
+- Three sessions, one of them 83% of the held-out bars. The intervals cover sampling noise within these sessions, not regime changes.
+- The 0.01 threshold was my own choice, and the models use different feature sets (2 against 4).
+- No interval on the boosted-minus-linear difference, no calibration slopes in this script, no costs: a prediction, not a trading result.
+- This held-out data is now used. Any further model choice needs newer data.
+
+### Open questions
+1. Is the boosted gain nonlinearity or the extra inputs? (Exploratory only: linear on the same four features.)
+2. What is the interval of the paired difference?
+
+### Next
+Project complete. Further experiments need data recorded after this entry.

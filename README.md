@@ -30,7 +30,7 @@
 - [x] Avellaneda-Stoikov market maker
 - [x] C++ port of the book with benchmarks
 - [x] Gradient boosting, then a small neural net
-- [ ] Replay dashboard
+- [x] Replay dashboard
 
 ## Setup
 
